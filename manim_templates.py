@@ -324,6 +324,14 @@ TEMPLATES = {
         "icon": "📜",
         "category": "Apresentação",
         "scene": "Apresentacao",
+        "flow": (
+            "1) Title aparece com Write (1.4s). 2) Title escala 0.7 e vai pro topo. "
+            "3) Enunciado MathTex entra com FadeIn shift UP. 4) Circumscribe pulsa "
+            "ao redor do enunciado. 5) Autoria (se preenchida) aparece com FadeIn "
+            "abaixo. 6) FadeOut geral. Use para abrir um vídeo declarando um "
+            "teorema, axioma ou identidade central."
+        ),
+        "use_when": "Vídeo começa com um teorema/identidade que precisa ser apresentado de forma cerimonial antes da demonstração.",
         "generator": gen_apresentacao,
         "params": [
             {"name": "titulo", "type": "text", "default": "Teorema de Pitágoras", "label": "Título"},
@@ -340,6 +348,14 @@ TEMPLATES = {
         "icon": "🧮",
         "category": "Resolução",
         "scene": "PassoAPasso",
+        "flow": (
+            "1) Título fixo no topo + linha divisória. 2) Equação inicial com "
+            "Write. 3) Para cada passo seguinte: tag 'passo N' aparece à "
+            "esquerda, TransformMatchingTex anima a equação anterior virando a "
+            "nova (fallback para ReplacementTransform). 4) Resultado final muda "
+            "de cor, escala 1.15 e recebe Circumscribe. 5) FadeOut."
+        ),
+        "use_when": "Você quer mostrar uma resolução algébrica de várias linhas onde os símbolos comuns se preservam visualmente entre os passos.",
         "generator": gen_passo_a_passo,
         "params": [
             {"name": "titulo", "type": "text", "default": "Resolvendo a equação", "label": "Título"},
@@ -355,6 +371,13 @@ TEMPLATES = {
         "icon": "⚖️",
         "category": "Comparação",
         "scene": "Comparacao",
+        "flow": (
+            "1) Título no topo + DashedLine vertical no centro. 2) Rótulos A/B "
+            "fadem em vindo dos lados. 3) Equações A/B entram com Write "
+            "simultâneo, em cores distintas. 4) Símbolo ⟺ aparece com "
+            "GrowFromCenter. 5) Indicate pulsa A e B em paralelo. 6) FadeOut."
+        ),
+        "use_when": "Mostrar equivalência ou contraste entre duas formas (ex: forma fatorada vs expandida, ou duas representações da mesma função).",
         "generator": gen_comparacao,
         "params": [
             {"name": "titulo", "type": "text", "default": "Produto Notável", "label": "Título"},
@@ -373,6 +396,13 @@ TEMPLATES = {
         "icon": "📋",
         "category": "Lista",
         "scene": "ListaCascata",
+        "flow": (
+            "1) Título com Underline. 2) Cada item (bullet + texto/MathTex) "
+            "aparece com FadeIn shift RIGHT em cascata (0.55s cada). 3) Se "
+            "destaque_idx >= 0, o item escolhido muda de cor, escala 1.1 e "
+            "recebe Flash. 4) FadeOut."
+        ),
+        "use_when": "Enumerar propriedades, axiomas ou itens de uma definição. Ideal quando você precisa destacar um item específico no final.",
         "generator": gen_lista_cascata,
         "params": [
             {"name": "titulo", "type": "text", "default": "Propriedades da Adição", "label": "Título"},
@@ -391,6 +421,14 @@ TEMPLATES = {
         "icon": "💡",
         "category": "Conceito",
         "scene": "DefinicaoExemplo",
+        "flow": (
+            "1) Cabeçalho 'Definição' com SurroundingRectangle. 2) Equação da "
+            "definição entra com FadeIn central. 3) Bloco inteiro da definição "
+            "escala 0.55 e sobe pro topo. 4) Linha divisória aparece. "
+            "5) Cabeçalho 'Exemplo' aparece. 6) Exemplo entra com Write + "
+            "Circumscribe. 7) FadeOut."
+        ),
+        "use_when": "Apresentar um conceito formal e em seguida instanciar com um caso concreto. Bom para vídeos didáticos curtos.",
         "generator": gen_definicao_exemplo,
         "params": [
             {"name": "titulo_def", "type": "text", "default": "Definição", "label": "Título da definição"},
@@ -406,6 +444,14 @@ TEMPLATES = {
         "icon": "⛓️",
         "category": "Demonstração",
         "scene": "Sequencia",
+        "flow": (
+            "1) Título no topo. 2) Primeira expressão com Write central. "
+            "3) Para cada próxima: seta vertical (⇓) cresce + nova linha 'sep "
+            "expr' com Write; se a pilha sair da tela, todo o grupo sobe 1.4u "
+            "automaticamente. 4) Última expressão recebe Circumscribe verde. "
+            "5) FadeOut."
+        ),
+        "use_when": "Demonstrar uma cadeia de igualdades, equivalências ou implicações lógicas em coluna vertical.",
         "generator": gen_sequencia,
         "params": [
             {"name": "titulo", "type": "text", "default": "Diferença de Quadrados", "label": "Título"},
@@ -438,6 +484,76 @@ def get_template_meta():
         }
         for tid, t in TEMPLATES.items()
     ]
+
+
+def _default_params(t):
+    return {p["name"]: p["default"] for p in t["params"]}
+
+
+def get_template_detail(template_id: str) -> dict:
+    if template_id not in TEMPLATES:
+        raise ValueError(f"Template '{template_id}' não encontrado")
+    t = TEMPLATES[template_id]
+    defaults = _default_params(t)
+    example_code = generate_code(template_id, defaults)
+    return {
+        "id": t["id"],
+        "title": t["title"],
+        "description": t["description"],
+        "icon": t["icon"],
+        "category": t["category"],
+        "scene": t["scene"],
+        "flow": t.get("flow", ""),
+        "use_when": t.get("use_when", ""),
+        "params": t["params"],
+        "default_params": defaults,
+        "example_code": example_code,
+    }
+
+
+def manifest_for_ai() -> dict:
+    """
+    Manifesto rico de TEMPLATES otimizado para consumo por LLMs.
+
+    Uma IA pode chamar GET /api/templates/manifest, ler descrições de fluxo,
+    decidir qual template usar, montar params e chamar POST /api/render.
+    Para cenas totalmente novas, a IA pode estudar `example_code` como
+    referência de estilo e chamar POST /api/render-code com código próprio.
+    """
+    return {
+        "system": (
+            "Manim Studio expõe templates de fluxo de transição para vídeos "
+            "matemáticos. Cada template é um esqueleto animado (intro → "
+            "reveals → ênfase → saída) com slots de LaTeX/texto preenchíveis. "
+            "O LaTeX dos slots é injetado com escape seguro via repr()."
+        ),
+        "endpoints": {
+            "list": "GET /api/templates",
+            "detail": "GET /api/templates/<id>",
+            "manifest": "GET /api/templates/manifest",
+            "generate_code": "POST /api/generate {template_id, params}",
+            "render_template": "POST /api/render {template_id, params, quality}",
+            "render_custom_code": "POST /api/render-code {code, quality, scene?}",
+            "snippets_manifest": "GET /api/snippets/manifest",
+        },
+        "param_types": {
+            "text": "string de uma linha (ex: título)",
+            "latex": "string LaTeX de uma linha (ex: 'a^2 + b^2 = c^2'); use \\\\ para backslash em JSON",
+            "list_text": "múltiplos textos, um por linha (separador '\\n')",
+            "list_latex": "múltiplas expressões LaTeX, uma por linha",
+            "number": "valor numérico",
+            "select": "valor restrito a `options[].value`",
+        },
+        "qualities": {"l": "480p15 (rápido, recomendado)", "m": "720p30", "h": "1080p60"},
+        "templates": [get_template_detail(tid) for tid in TEMPLATES.keys()],
+        "tips_for_ai": [
+            "Escolha o template cujo 'use_when' mais combina com o pedido do usuário.",
+            "Para LaTeX dentro de JSON, escape barras: '\\\\frac{a}{b}' no JSON vira \\frac{a}{b} no servidor.",
+            "Listas (`list_latex`/`list_text`): envie como string com '\\n' separando, OU como array — o backend aceita ambos.",
+            "Se nenhum template servir, gere código completo (subclasse de Scene) e poste em /api/render-code.",
+            "Combine snippets (/api/snippets/manifest) dentro de uma cena própria para flexibilidade total.",
+        ],
+    }
 
 
 def _validate_param(p_def, value):

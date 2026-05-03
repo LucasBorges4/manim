@@ -7,9 +7,13 @@ matemáticos prontos. Frontend leve em HTML/CSS/JS, backend Flask.
 
 - `app.py` — Servidor Flask. Endpoints:
   - `GET /` — UI
-  - `GET /api/templates` — lista templates
+  - `GET /api/templates` — lista templates (resumo)
+  - `GET /api/templates/<id>` — detalhe de um template (params, defaults, exemplo de código)
+  - `GET /api/templates/manifest` — manifesto otimizado para IA (todos os templates + flow + example_code)
+  - `GET /api/ai/manifest` — **manifesto unificado** templates + snippets + endpoints (uma chamada para IA entender a ferramenta toda)
   - `POST /api/generate` — devolve o código Python Manim gerado
   - `POST /api/render` — gera o código, executa `manim` e devolve a URL do mp4
+  - `POST /api/render-code` — renderiza código Manim arbitrário (IA pode mandar Scene própria)
   - `GET /renders/<arquivo>` — serve os vídeos renderizados
 - `manim_templates.py` — registry de **templates de fluxo de transições** (6 templates).
   Cada template é um esqueleto animado (intro → reveals → ênfase → saída) com
@@ -57,6 +61,29 @@ Para adicionar um template novo:
 1. Escrever `gen_meu(p)` que retorna o código.
 2. Adicionar entrada no dict `TEMPLATES` com `title`, `description`, `icon`,
    `category`, `scene` (nome da classe Scene gerada) e `params`.
+
+## Integração com IA
+
+A ferramenta foi pensada para que LLMs gerem novas soluções automaticamente.
+Cada template em `manim_templates.py` tem dois campos extras consumidos pela IA:
+
+- **`flow`** — descreve a coreografia da animação em linguagem natural (passos
+  numerados: Write, FadeIn, TransformMatchingTex, Circumscribe, etc).
+- **`use_when`** — uma frase indicando o caso de uso do template, para a IA
+  escolher rapidamente.
+
+Funções em `manim_templates.py`:
+- `get_template_detail(id)` — retorna params, defaults e `example_code` já
+  preenchido (a IA vê código real funcionando).
+- `manifest_for_ai()` — devolve manifesto completo de templates.
+
+Endpoints `/api/ai/manifest` (templates+snippets) e `/api/templates/manifest`
+permitem à IA fazer **uma chamada** e ter contexto total. Fluxos típicos:
+
+1. **Rápido**: `GET /api/ai/manifest` → escolher template → `POST /api/render`.
+2. **Compor**: `GET /api/snippets/manifest` → montar Scene com snippets →
+   `POST /api/render-code`.
+3. **Preview**: `POST /api/generate` para inspecionar antes de renderizar.
 
 ## Renderização
 

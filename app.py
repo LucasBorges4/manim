@@ -12,9 +12,13 @@ from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory, render_template
 
-from manim_templates import TEMPLATES, generate_code, get_template_meta, get_scene_class
+from manim_templates import (
+    TEMPLATES, generate_code, get_template_meta, get_scene_class,
+    get_template_detail, manifest_for_ai as templates_manifest_for_ai,
+)
 from manim_snippets import (
-    list_snippets, get_snippet, render_snippet, manifest_for_ai, CATEGORIES,
+    list_snippets, get_snippet, render_snippet,
+    manifest_for_ai as snippets_manifest_for_ai, CATEGORIES,
 )
 
 SCENE_RE = re.compile(r"class\s+([A-Za-z_]\w*)\s*\(\s*Scene\s*\)\s*:")
@@ -87,6 +91,51 @@ def index():
 @app.route("/api/templates")
 def api_templates():
     return jsonify({"templates": get_template_meta()})
+
+
+@app.route("/api/templates/manifest", methods=["GET"])
+def api_templates_manifest():
+    """Manifesto completo de templates otimizado para consumo por IA."""
+    return jsonify(templates_manifest_for_ai())
+
+
+@app.route("/api/templates/<template_id>", methods=["GET"])
+def api_template_detail(template_id):
+    """Detalhe de um template incluindo flow, defaults e código de exemplo."""
+    try:
+        return jsonify(get_template_detail(template_id))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+
+
+@app.route("/api/ai/manifest", methods=["GET"])
+def api_ai_manifest():
+    """
+    Manifesto unificado para IA: descreve a ferramenta inteira (templates +
+    snippets + endpoints). Uma IA consegue, com uma única chamada, entender
+    como integrar e gerar novas soluções.
+    """
+    tm = templates_manifest_for_ai()
+    sm = snippets_manifest_for_ai()
+    return jsonify({
+        "tool": "Manim Studio",
+        "summary": (
+            "Ferramenta para gerar vídeos matemáticos animados com Manim. "
+            "Oferece templates de fluxo (esqueletos de cena) e snippets "
+            "(blocos reutilizáveis). Uma IA pode preencher templates, "
+            "compor cenas próprias com snippets, ou enviar código Manim "
+            "completo para renderização."
+        ),
+        "language": "pt-BR",
+        "manim_version": "0.20.1",
+        "workflows": {
+            "fast": "1) GET /api/ai/manifest. 2) Escolher template. 3) POST /api/render com {template_id, params, quality}.",
+            "compose": "1) GET /api/snippets/manifest. 2) Montar Scene combinando snippets + LaTeX próprio. 3) POST /api/render-code com {code}.",
+            "preview": "Use POST /api/generate para inspecionar o código antes de renderizar.",
+        },
+        "templates": tm,
+        "snippets": sm,
+    })
 
 
 @app.route("/api/generate", methods=["POST"])
