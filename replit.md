@@ -1,52 +1,49 @@
-# Manim Educational Math Animations
+# Manim Studio — Animações Matemáticas
 
-A collection of Manim (Mathematical Animation Engine) scripts for creating educational math animations for high school students. Content is in Portuguese (Brazilian).
+Site em Python que monta templates Manim, executa o renderizador e devolve vídeos
+matemáticos prontos. Frontend leve em HTML/CSS/JS, backend Flask.
 
-## Project Structure
+## Estrutura
 
-- `example.py` — Basic Manim example (SquareToCircle)
-- `advanced_example.py` — More advanced Manim demo
-- `aritmetica_basica.py` — Basic arithmetic (primes, GCD, LCM, sign rules)
-- `calculo_i_review.py` — Calculus I review
-- `direction_field_edo.py` / `direction_field_edo2.py` / `direction_field_edo3.py` — ODE direction fields
-- `equacoes_sistemas.py` — Equations and linear systems
-- `estatistica_probabilidade.py` — Statistics and probability
-- `exponential_resolution.py` — Exponential functions
-- `fracao.py` / `fracao_suave.py` / `fracoes_ensino_medio.py` — Fractions
-- `funcoes_graficos.py` — Functions and graphs
-- `geometria_basica.py` — Basic geometry
-- `norma_produto_escalar.py` — Vectors: norm and dot product
-- `potencias_radiciacao.py` — Powers and radicals
-- `soma_matrizes_r2.py` — Matrix addition in R²
-- `trigonometria.py` — Trigonometry
+- `app.py` — Servidor Flask. Endpoints:
+  - `GET /` — UI
+  - `GET /api/templates` — lista templates
+  - `POST /api/generate` — devolve o código Python Manim gerado
+  - `POST /api/render` — gera o código, executa `manim` e devolve a URL do mp4
+  - `GET /renders/<arquivo>` — serve os vídeos renderizados
+- `manim_templates.py` — registry de templates parametrizados (8 templates):
+  Função Quadrática, Bhaskara, Pitágoras, Função Linear, Círculo Trigonométrico,
+  Derivada Visual, Soma de Frações, Sistema Linear 2×2.
+- `templates/index.html` — UI principal
+- `static/style.css` — tema escuro estilo IDE
+- `static/app.js` — interações: seleção de template, edição de parâmetros,
+  preview de código com Prism.js, render e player de vídeo
+- `renders/` — vídeos renderizados (cache temporário)
+- Scripts originais Manim (`*.py` na raiz) — exemplos completos pré-existentes
 
-## Setup
+## Como rodar
 
-Manim Community v0.19.0 is installed via Nix. System dependencies (cairo, pango, ffmpeg, ghostscript) are also installed via Nix.
+Workflow `Start application` roda `python3 app.py` na porta 5000.
 
-## How to Render Videos
+## Dependências
 
-```bash
-manim -pql <filename>.py <ClassName>
-```
+- **Nix:** cairo, pango, pkg-config, ffmpeg, ghostscript, cairomm, pangomm, harfbuzz
+- **Nix Python:** manim 0.19.0, flask, flask-cors
+  (`nix profile install nixpkgs#python312Packages.{manim,flask,flask-cors}`)
 
-**Quality flags:**
-- `-pql` — Low quality, plays after render (good for development)
-- `-pqm` — Medium quality
-- `-pqh` — High quality
-- `-pqf` — 4K quality
+## Templates
 
-**Examples:**
-```bash
-manim -pql example.py SquareToCircle
-manim -pql aritmetica_basica.py NumerosPrimos
-manim -pql trigonometria.py CircunferenciaTrigonometrica
-```
+Cada template em `manim_templates.py` é uma função `gen_*(p)` que recebe os
+parâmetros validados e devolve uma string com código Python Manim. Os valores
+são interpolados como literais (não há f-string aninhada com LaTeX).
 
-Rendered videos are saved to `media/videos/<filename>/<quality>/`.
+Para adicionar um template novo:
+1. Escrever `gen_meu(p)` que retorna o código.
+2. Adicionar entrada no dict `TEMPLATES` com `title`, `description`, `icon`,
+   `category`, `scene` (nome da classe Scene gerada) e `params`.
 
-## Dependencies
+## Renderização
 
-- **Nix packages:** cairo, pango, pkg-config, ffmpeg, ghostscript, cairomm, pangomm, harfbuzz
-- **Python (via Nix):** manim 0.19.0 (installed via `nix profile install nixpkgs#python312Packages.manim`)
-- **requirements.txt:** manim, numpy, scipy, pycairo, pango, ffmpeg-python
+`/api/render` gera código → escreve em diretório isolado → executa `manim -ql`
+com `--media_dir` apontando para o diretório → copia o mp4 para `renders/` →
+devolve URL pública. Timeout: 3 min.

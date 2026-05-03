@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manim Studio — Animações Matemáticas</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+    <div class="brand">
+        <span class="logo">∑</span>
+        <div>
+            <h1>Manim Studio</h1>
+            <p>Crie animações matemáticas com um clique</p>
+        </div>
+    </div>
+    <div class="topbar-right">
+        <span class="badge">Manim Community v0.19</span>
+    </div>
+</header>
+
+<main class="layout">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h2>Templates</h2>
+            <input type="text" id="search" placeholder="Buscar template...">
+        </div>
+        <div id="template-list" class="template-list"></div>
+    </aside>
+
+    <section class="workspace">
+        <div class="workspace-header">
+            <div>
+                <h2 id="current-title">Selecione um template</h2>
+                <p id="current-desc" class="muted">Escolha um template à esquerda para começar.</p>
+            </div>
+            <div class="actions">
+                <select id="quality" title="Qualidade do vídeo">
+                    <option value="l">Baixa (480p, rápido)</option>
+                    <option value="m">Média (720p)</option>
+                    <option value="h">Alta (1080p, lento)</option>
+                </select>
+                <button id="render-btn" class="btn primary" disabled>
+                    <span class="btn-text">▶ Renderizar</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="panels">
+            <div class="panel params-panel">
+                <div class="panel-header">
+                    <h3>Parâmetros</h3>
+                    <span class="hint">Ajuste e gere o código</span>
+                </div>
+                <form id="params-form" class="params-form">
+                    <p class="muted center">Nenhum template selecionado.</p>
+                </form>
+            </div>
+
+            <div class="panel code-panel">
+                <div class="panel-header">
+                    <h3>Código Manim gerado</h3>
+                    <button id="copy-code" class="btn ghost small">Copiar</button>
+                </div>
+                <pre class="code-wrap"><code id="code-view" class="language-python"># O código aparecerá aqui após selecionar um template.</code></pre>
+            </div>
+
+            <div class="panel video-panel">
+                <div class="panel-header">
+                    <h3>Vídeo</h3>
+                    <span id="video-status" class="hint"></span>
+                </div>
+                <div id="video-area" class="video-area">
+                    <div class="placeholder">
+                        <div class="placeholder-icon">🎬</div>
+                        <p>O vídeo renderizado aparecerá aqui.</p>
+                    </div>
+                </div>
+                <div id="render-log" class="render-log hidden"></div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
