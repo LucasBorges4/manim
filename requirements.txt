@@ -1,0 +1,6 @@
+manim
+numpy
+scipy
+pycairo
+pango
+ffmpeg-python

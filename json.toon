@@ -1,0 +1,23 @@
+format: TOON
+version: "1.0"
+goal: Solve complex tasks with structured reasoning
+context:
+  system: Cognitive Prompt System
+  mode: iterative_refinement
+steps[4]:
+  - id: 1
+    type: analysis
+    description: Understand the problem deeply
+    actions[3]: extract_entities,identify_constraints,define_objectives
+  - id: 2
+    type: planning
+    description: Create execution strategy
+    actions[2]: decompose_task,prioritize_steps
+  - id: 3
+    type: execution
+    description: Perform actions
+    actions[2]: generate_solution,validate_output
+  - id: 4
+    type: refinement
+    description: Improve result iteratively
+    actions[2]: analyze_errors,optimize_solution
