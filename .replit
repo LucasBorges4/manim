@@ -1,0 +1,35 @@
+modules = ["python-3.12"]
+[agent]
+expertMode = true
+stack = "BEST_EFFORT_FALLBACK"
+
+[nix]
+channel = "stable-25_05"
+packages = ["cairo", "ffmpeg-full", "libxcrypt", "pkg-config", "xsimd"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo 'Manim v0.19.0 is ready! To render a video, run: manim -pql <file>.py <ClassName>' && echo 'Example: manim -pql example.py SquareToCircle' && echo '' && echo 'Available scripts:' && ls *.py"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[deployment]
+deploymentTarget = "vm"
+run = ["bash", "-c", "echo 'Manim v0.19.0 is ready! Run: manim -pql <file>.py <ClassName>'"]
