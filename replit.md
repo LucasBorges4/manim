@@ -11,9 +11,17 @@ matemáticos prontos. Frontend leve em HTML/CSS/JS, backend Flask.
   - `POST /api/generate` — devolve o código Python Manim gerado
   - `POST /api/render` — gera o código, executa `manim` e devolve a URL do mp4
   - `GET /renders/<arquivo>` — serve os vídeos renderizados
-- `manim_templates.py` — registry de templates parametrizados (8 templates):
-  Função Quadrática, Bhaskara, Pitágoras, Função Linear, Círculo Trigonométrico,
-  Derivada Visual, Soma de Frações, Sistema Linear 2×2.
+- `manim_templates.py` — registry de **templates de fluxo de transições** (6 templates).
+  Cada template é um esqueleto animado (intro → reveals → ênfase → saída) com
+  **slots de LaTeX/texto** que o usuário preenche:
+  - **apresentacao** — Apresentação de Teorema (título + enunciado LaTeX + caixa)
+  - **passo_a_passo** — Resolução em equações sequenciais com TransformMatchingTex
+  - **comparacao** — Duas expressões lado a lado com seta de equivalência
+  - **lista_cascata** — Itens (texto ou LaTeX) com FadeIn em cascata
+  - **definicao_exemplo** — Definição central que sobe + exemplo destacado
+  - **sequencia** — Cadeia A ⇒ B ⇒ C com setas verticais
+  Tipos de parâmetro: `text`, `latex`, `list_text`, `list_latex` (textarea uma
+  por linha), `number`, `select`. LaTeX é injetado via `repr()` para escape seguro.
 - `manim_snippets.py` — biblioteca de **snippets** (blocos de código pequenos
   parametrizados) focados em transições e animações reutilizáveis. 20 snippets
   em 8 categorias (Introdução, Transições, Ênfase, Equações, Gráficos,
@@ -36,9 +44,8 @@ Workflow `Start application` roda `python3 app.py` na porta 5000.
 
 ## Dependências
 
-- **Nix:** cairo, pango, pkg-config, ffmpeg, ghostscript, cairomm, pangomm, harfbuzz
-- **Nix Python:** manim 0.19.0, flask, flask-cors
-  (`nix profile install nixpkgs#python312Packages.{manim,flask,flask-cors}`)
+- **Nix system:** cairo, pango, pkg-config, ffmpeg, ghostscript, harfbuzz, **texliveFull** (necessário para `standalone.cls` usado por `MathTex`)
+- **Pip:** manim 0.20.1, flask, flask-cors (em `.pythonlibs/`)
 
 ## Templates
 

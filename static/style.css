@@ -216,7 +216,9 @@ select#quality {
     font-weight: 500;
 }
 .params-form input[type="number"],
-.params-form select {
+.params-form input[type="text"],
+.params-form select,
+.params-form textarea {
     width: 100%;
     background: var(--bg-3);
     border: 1px solid var(--border);
@@ -227,9 +229,23 @@ select#quality {
     outline: none;
     transition: border-color 0.15s;
     font-family: inherit;
+    box-sizing: border-box;
 }
-.params-form input[type="number"]:focus,
-.params-form select:focus { border-color: var(--accent); }
+.params-form textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
+.params-form .latex-input {
+    font-family: ui-monospace, "JetBrains Mono", "Fira Code", monospace;
+    font-size: 13px;
+}
+.params-form input:focus,
+.params-form select:focus,
+.params-form textarea:focus { border-color: var(--accent); }
+.params-form .field-hint {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    font-style: italic;
+}
 .params-form .muted.center { text-align: center; padding: 30px 0; }
 
 .editor-wrap {

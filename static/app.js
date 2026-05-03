@@ -160,28 +160,36 @@ function selectTemplate(id) {
     regenerateCode();
 }
 
+function escAttr(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
+
 function renderForm(t) {
     els.form.innerHTML = t.params.map(p => {
+        const cur = state.params[p.name] !== undefined ? state.params[p.name] : p.default;
+        const hint = p.hint ? `<small class="field-hint">${p.hint}</small>` : "";
+        let control;
         if (p.type === "select") {
-            return `
-                <div class="field">
-                    <label for="p-${p.name}">${p.label}</label>
-                    <select id="p-${p.name}" data-name="${p.name}">
-                        ${p.options.map(o => `<option value="${o.value}" ${o.value === p.default ? 'selected' : ''}>${o.label}</option>`).join("")}
-                    </select>
-                </div>
-            `;
+            control = `<select data-name="${p.name}">
+                ${p.options.map(o => `<option value="${escAttr(o.value)}" ${String(o.value) === String(cur) ? 'selected' : ''}>${o.label}</option>`).join("")}
+            </select>`;
+        } else if (p.type === "latex") {
+            control = `<input type="text" data-name="${p.name}" data-kind="latex" class="latex-input" value="${escAttr(cur)}" placeholder="ex: \\frac{a}{b}" spellcheck="false">`;
+        } else if (p.type === "list_text" || p.type === "list_latex") {
+            control = `<textarea data-name="${p.name}" data-kind="${p.type}" rows="5" class="${p.type === 'list_latex' ? 'latex-input' : ''}" spellcheck="false">${escAttr(cur)}</textarea>`;
+        } else if (p.type === "number") {
+            control = `<input type="number" data-name="${p.name}" value="${escAttr(cur)}" step="any">`;
+        } else {
+            control = `<input type="text" data-name="${p.name}" value="${escAttr(cur)}">`;
         }
-        return `
-            <div class="field">
-                <label for="p-${p.name}">${p.label}</label>
-                <input type="number" id="p-${p.name}" data-name="${p.name}"
-                       value="${p.default}" step="${p.step || 1}">
-            </div>
-        `;
+        return `<div class="field">
+            <label>${p.label}</label>
+            ${control}
+            ${hint}
+        </div>`;
     }).join("");
 
-    els.form.querySelectorAll("input, select").forEach(el => {
+    els.form.querySelectorAll("input, select, textarea").forEach(el => {
         el.addEventListener("input", () => {
             const name = el.dataset.name;
             let val;

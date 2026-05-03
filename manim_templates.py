@@ -1,568 +1,430 @@
 """
-Templates de animações Manim para matemática.
-Cada template gera código Python Manim com transições suaves.
-Estratégia: computamos valores em Python e os inserimos no código como literais,
-evitando nested f-strings com LaTeX (que quebraria por causa de \\frac, \\Delta etc).
+Templates de TRANSIÇÕES de vídeo Manim.
+
+Cada template é um ESQUELETO ANIMADO — define o fluxo de transições do vídeo
+(intro, sequência de revelações, ênfases, saída) e expõe SLOTS de LaTeX/texto
+que o usuário preenche com seu conteúdo matemático.
+
+Estratégia segura para LaTeX:
+  Os textos do usuário são injetados no código via `repr(s)`, que produz um
+  literal Python válido com escapes corretos (ex.: '\\frac' fica '\\\\frac' no
+  source, e Python parsa de volta para '\\frac' que MathTex aceita como `\frac`).
 """
-from math import gcd, sqrt
+
+# -------------------- Helpers --------------------
+
+def _split_lines(s: str) -> list[str]:
+    """Quebra por linhas, ignora linhas vazias, faz trim."""
+    if isinstance(s, list):
+        return [str(x).strip() for x in s if str(x).strip()]
+    return [ln.strip() for ln in str(s).splitlines() if ln.strip()]
 
 
-def _hdr(titulo_txt: str) -> str:
-    """Cabeçalho padrão com título azul no topo."""
-    return (
-        'titulo = Text(' + repr(titulo_txt) + ', font_size=44, color=BLUE).to_edge(UP)\n'
-        '        self.play(Write(titulo))\n'
-        '        self.wait(0.5)'
-    )
+def _color_options():
+    return [{"value": c, "label": c.title().replace("_", " ")} for c in [
+        "BLUE", "RED", "GREEN", "YELLOW", "ORANGE", "PURPLE", "PINK", "TEAL",
+        "WHITE", "GREY_B", "GOLD", "MAROON",
+    ]]
 
 
-# -------------------- Função Quadrática --------------------
-def gen_funcao_quadratica(p):
-    a, b, c = float(p["a"]), float(p["b"]), float(p["c"])
-    if a == 0:
-        raise ValueError("Em uma função quadrática, 'a' não pode ser zero.")
-    xv = -b / (2 * a)
-    yv = a * xv ** 2 + b * xv + c
-    delta = b ** 2 - 4 * a * c
-    has_zeros = a != 0 and delta >= 0
-    if has_zeros:
-        x1 = (-b - sqrt(delta)) / (2 * a)
-        x2 = (-b + sqrt(delta)) / (2 * a)
-    code = f'''from manim import *
+# -------------------- 1. Apresentação --------------------
+def gen_apresentacao(p):
+    titulo = str(p.get("titulo", "Teorema"))
+    enunciado = str(p.get("enunciado", r"a^2 + b^2 = c^2"))
+    autoria = str(p.get("autoria", ""))
+    cor_titulo = str(p.get("cor_titulo", "BLUE"))
+    cor_destaque = str(p.get("cor_destaque", "YELLOW"))
+    return f'''from manim import *
 
-class FuncaoQuadratica(Scene):
+class Apresentacao(Scene):
     def construct(self):
-        {_hdr("Função Quadrática")}
+        # 1. Título com Write + slide para o topo
+        titulo = Text({titulo!r}, font_size=52, color={cor_titulo})
+        self.play(Write(titulo), run_time=1.4)
+        self.wait(0.5)
+        self.play(titulo.animate.to_edge(UP).scale(0.7))
 
-        formula = MathTex(r"f(x) = {a:g}x^2 + ({b:g})x + ({c:g})", font_size=44, color=YELLOW).next_to(titulo, DOWN)
-        self.play(FadeIn(formula, shift=UP))
-        self.wait(1)
+        # 2. Enunciado central com FadeIn
+        enunciado = MathTex({enunciado!r}, font_size=64, color=WHITE)
+        self.play(FadeIn(enunciado, shift=UP*0.5), run_time=1.2)
+        self.wait(0.8)
 
-        axes = Axes(
-            x_range=[-6, 6, 1], y_range=[-8, 8, 2],
-            x_length=9, y_length=5,
-            axis_config={{"include_numbers": True, "stroke_color": GREY_B}},
-        ).shift(DOWN * 0.5)
-        graph = axes.plot(lambda x: {a}*x**2 + {b}*x + {c}, color=BLUE, x_range=[-6, 6])
-        graph_label = MathTex("f(x)").set_color(BLUE).next_to(graph.get_end(), UR, buff=0.1)
-
-        self.play(Create(axes), run_time=1.5)
-        self.play(Create(graph), run_time=2)
-        self.play(Write(graph_label))
+        # 3. Caixa pulsando ao redor
+        self.play(Circumscribe(enunciado, color={cor_destaque}, run_time=1.5))
         self.wait(0.5)
 
-        # Vértice
-        vertice = Dot(axes.c2p({xv}, {yv}), color=YELLOW, radius=0.12)
-        v_lbl = MathTex(r"V({xv:.2f},\ {yv:.2f})", color=YELLOW).scale(0.7).next_to(vertice, UR if {a} > 0 else DR)
-        self.play(GrowFromCenter(vertice), Write(v_lbl))
-        self.wait(0.8)
-'''
-    if has_zeros:
-        code += f'''
-        # Zeros
-        z1 = Dot(axes.c2p({x1}, 0), color=GREEN, radius=0.12)
-        z2 = Dot(axes.c2p({x2}, 0), color=GREEN, radius=0.12)
-        z1l = MathTex(r"x_1={x1:.2f}", color=GREEN).scale(0.6).next_to(z1, DOWN)
-        z2l = MathTex(r"x_2={x2:.2f}", color=GREEN).scale(0.6).next_to(z2, DOWN)
-        self.play(GrowFromCenter(z1), GrowFromCenter(z2))
-        self.play(Write(z1l), Write(z2l))
-'''
-    elif a != 0:
-        code += '''
-        sem_raiz = Text("Sem raízes reais (Δ < 0)", font_size=28, color=RED).to_edge(DOWN)
-        self.play(Write(sem_raiz))
-'''
-    code += '''
-        self.wait(2)
-        self.play(*[FadeOut(m) for m in self.mobjects])
-'''
-    return code
+        # 4. Autoria opcional
+        if {autoria!r}:
+            autoria = Text({autoria!r}, font_size=24, color=GREY_B, slant=ITALIC).next_to(enunciado, DOWN, buff=0.8)
+            self.play(FadeIn(autoria, shift=UP*0.3))
+            self.wait(1)
 
-
-# -------------------- Bhaskara --------------------
-def gen_bhaskara(p):
-    a, b, c = float(p["a"]), float(p["b"]), float(p["c"])
-    if a == 0:
-        raise ValueError("Em Bhaskara, o coeficiente 'a' não pode ser zero (não seria do 2º grau).")
-    delta = b * b - 4 * a * c
-    code = f'''from manim import *
-
-class Bhaskara(Scene):
-    def construct(self):
-        {_hdr("Fórmula de Bhaskara")}
-
-        eq = MathTex(r"{a:g}x^2 + ({b:g})x + ({c:g}) = 0", font_size=48).shift(UP*1.5)
-        self.play(Write(eq))
-        self.wait(1)
-
-        formula = MathTex(r"x = \\frac{{-b \\pm \\sqrt{{b^2 - 4ac}}}}{{2a}}", font_size=44, color=YELLOW).shift(UP*0.2)
-        self.play(FadeIn(formula, shift=UP))
-        self.wait(1)
-
-        delta_txt = MathTex(r"\\Delta = b^2 - 4ac = ({b:g})^2 - 4 \\cdot ({a:g}) \\cdot ({c:g}) = {delta:g}", font_size=34, color=GREEN).shift(DOWN*1.2)
-        self.play(Write(delta_txt))
+        # 5. Saída suave
         self.wait(1.5)
+        self.play(*[FadeOut(m) for m in self.mobjects], run_time=1)
 '''
-    if delta < 0:
-        code += '''
-        res = Text("Δ < 0  →  Sem raízes reais", font_size=36, color=RED).shift(DOWN*2.8)
-        self.play(Write(res))
-'''
-    elif delta == 0:
-        x = -b / (2 * a)
-        code += f'''
-        res = MathTex(r"x = {x:.4g}", font_size=44, color=RED).shift(DOWN*2.8)
-        self.play(Write(res))
-'''
-    else:
-        x1 = (-b - sqrt(delta)) / (2 * a)
-        x2 = (-b + sqrt(delta)) / (2 * a)
-        code += f'''
-        res1 = MathTex(r"x_1 = {x1:.4g}", font_size=44, color=RED).shift(DOWN*2.6 + LEFT*2.5)
-        res2 = MathTex(r"x_2 = {x2:.4g}", font_size=44, color=RED).shift(DOWN*2.6 + RIGHT*2.5)
-        self.play(Write(res1), Write(res2))
-'''
-    code += '''
-        self.wait(3)
-        self.play(*[FadeOut(m) for m in self.mobjects])
-'''
-    return code
 
 
-# -------------------- Pitágoras --------------------
-def gen_pitagoras(p):
-    a = float(p["a"])
-    b = float(p["b"])
-    if a <= 0 or b <= 0:
-        raise ValueError("Os catetos devem ser positivos.")
-    c = sqrt(a * a + b * b)
+# -------------------- 2. Passo a passo --------------------
+def gen_passo_a_passo(p):
+    titulo = str(p.get("titulo", "Resolução"))
+    passos = _split_lines(p.get("passos", "x + 2 = 5\nx = 5 - 2\nx = 3"))
+    if len(passos) < 2:
+        raise ValueError("Informe ao menos 2 passos (LaTeX), um por linha.")
+    if len(passos) > 8:
+        raise ValueError("Máximo de 8 passos.")
+    cor_destaque = str(p.get("cor_destaque", "GREEN"))
     return f'''from manim import *
-import numpy as np
 
-class Pitagoras(Scene):
+class PassoAPasso(Scene):
     def construct(self):
-        {_hdr("Teorema de Pitágoras")}
+        # Cabeçalho fixo
+        titulo = Text({titulo!r}, font_size=42, color=BLUE).to_edge(UP)
+        self.play(Write(titulo), run_time=1)
+        linha = Line(LEFT*5, RIGHT*5, color=GREY_B).next_to(titulo, DOWN, buff=0.3)
+        self.play(Create(linha))
 
-        a, b, c = {a}, {b}, {c}
-        scale = 0.8
-        A = np.array([-b*scale/2, -a*scale/2, 0])
-        B = np.array([ b*scale/2, -a*scale/2, 0])
-        C = np.array([-b*scale/2,  a*scale/2, 0])
+        passos_latex = {passos!r}
 
-        triangulo = Polygon(A, B, C, color=WHITE, stroke_width=4).set_fill(BLUE, opacity=0.3)
-        self.play(Create(triangulo), run_time=1.5)
+        # Primeiro passo aparece com Write
+        atual = MathTex(passos_latex[0], font_size=56).move_to(ORIGIN)
+        self.play(Write(atual), run_time=1.3)
+        self.wait(0.7)
 
-        right_angle = Square(side_length=0.3, color=YELLOW).move_to(A + np.array([0.15, 0.15, 0]))
-        self.play(Create(right_angle))
+        # Demais passos: TransformMatchingTex revelando a transformação
+        for i, latex in enumerate(passos_latex[1:], start=1):
+            novo = MathTex(latex, font_size=56).move_to(atual)
+            # Indicador de passo à esquerda
+            tag = Text(f"passo {{i+1}}", font_size=22, color=GREY_B).to_edge(LEFT).shift(DOWN*0.3)
+            self.play(FadeIn(tag, shift=RIGHT*0.3))
+            try:
+                self.play(TransformMatchingTex(atual, novo), run_time=1.4)
+            except Exception:
+                self.play(ReplacementTransform(atual, novo), run_time=1.4)
+            atual = novo
+            self.wait(0.7)
+            self.play(FadeOut(tag))
 
-        lbl_a = MathTex(r"a = {a:g}", color=GREEN).next_to(triangulo, LEFT)
-        lbl_b = MathTex(r"b = {b:g}", color=ORANGE).next_to(triangulo, DOWN)
-        lbl_c = MathTex(r"c = {c:.3g}", color=RED).next_to(Line(B, C).get_center(), UR, buff=0.1)
-        self.play(Write(lbl_a), Write(lbl_b), Write(lbl_c))
+        # Destaque do resultado final
+        self.play(atual.animate.set_color({cor_destaque}).scale(1.15), run_time=0.8)
+        self.play(Circumscribe(atual, color={cor_destaque}, run_time=1.4))
+        self.wait(1.5)
+        self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.9)
+'''
+
+
+# -------------------- 3. Comparação --------------------
+def gen_comparacao(p):
+    titulo = str(p.get("titulo", "Comparação"))
+    label_a = str(p.get("label_a", "Forma A"))
+    label_b = str(p.get("label_b", "Forma B"))
+    latex_a = str(p.get("latex_a", r"(a+b)^2"))
+    latex_b = str(p.get("latex_b", r"a^2 + 2ab + b^2"))
+    cor_a = str(p.get("cor_a", "BLUE"))
+    cor_b = str(p.get("cor_b", "ORANGE"))
+    return f'''from manim import *
+
+class Comparacao(Scene):
+    def construct(self):
+        titulo = Text({titulo!r}, font_size=42, color=WHITE).to_edge(UP)
+        self.play(Write(titulo))
+
+        # Linha vertical separando os dois lados
+        divisor = DashedLine(UP*2.5, DOWN*2.5, color=GREY_B)
+
+        # Lado A entra pela esquerda
+        rotulo_a = Text({label_a!r}, font_size=28, color={cor_a}).move_to(LEFT*3.5 + UP*1.5)
+        eq_a = MathTex({latex_a!r}, font_size=56, color={cor_a}).move_to(LEFT*3.5)
+
+        # Lado B entra pela direita
+        rotulo_b = Text({label_b!r}, font_size=28, color={cor_b}).move_to(RIGHT*3.5 + UP*1.5)
+        eq_b = MathTex({latex_b!r}, font_size=56, color={cor_b}).move_to(RIGHT*3.5)
+
+        self.play(Create(divisor))
+        self.play(
+            FadeIn(rotulo_a, shift=RIGHT*0.5),
+            FadeIn(rotulo_b, shift=LEFT*0.5),
+        )
+        self.play(
+            Write(eq_a),
+            Write(eq_b),
+            run_time=1.4,
+        )
         self.wait(1)
 
-        sq_a = Polygon(A, C, C + np.array([-a*scale,0,0]), A + np.array([-a*scale,0,0]),
-                       color=GREEN, fill_opacity=0.5)
-        sq_b = Polygon(A, B, B + np.array([0,-b*scale,0]), A + np.array([0,-b*scale,0]),
-                       color=ORANGE, fill_opacity=0.5)
-
-        self.play(Create(sq_a))
-        a2 = MathTex(r"a^2={a*a:.3g}", color=GREEN).move_to(sq_a.get_center())
-        self.play(Write(a2))
-        self.wait(0.3)
-        self.play(Create(sq_b))
-        b2 = MathTex(r"b^2={b*b:.3g}", color=ORANGE).move_to(sq_b.get_center())
-        self.play(Write(b2))
-        self.wait(0.8)
-
-        formula = MathTex(r"a^2 + b^2 = c^2", font_size=48, color=YELLOW).to_edge(DOWN, buff=1)
-        self.play(Write(formula))
-        calc = MathTex(r"{a*a:.3g} + {b*b:.3g} = {c*c:.3g}", font_size=40, color=RED).next_to(formula, DOWN)
-        self.play(Write(calc))
-        self.wait(3)
-        self.play(*[FadeOut(m) for m in self.mobjects])
-'''
-
-
-# -------------------- Função Linear --------------------
-def gen_funcao_linear(p):
-    m = float(p["m"])
-    n = float(p["n"])
-    return f'''from manim import *
-
-class FuncaoLinear(Scene):
-    def construct(self):
-        {_hdr("Função Linear")}
-
-        formula = MathTex(r"f(x) = {m:g}x + ({n:g})", font_size=44, color=YELLOW).next_to(titulo, DOWN)
-        self.play(FadeIn(formula, shift=UP))
-        self.wait(0.8)
-
-        axes = Axes(x_range=[-5,5,1], y_range=[-5,5,1], x_length=8, y_length=5,
-                    axis_config={{"include_numbers": True, "stroke_color": GREY_B}}).shift(DOWN*0.3)
-        self.play(Create(axes))
-
-        graph = axes.plot(lambda x: {m}*x + {n}, color=GREEN, x_range=[-5,5])
-        self.play(Create(graph), run_time=2)
+        # Setas duplas indicando equivalência
+        seta = MathTex(r"\\Longleftrightarrow", font_size=72, color=YELLOW)
+        self.play(GrowFromCenter(seta))
         self.wait(0.5)
 
-        # Intercepto
-        p0 = Dot(axes.c2p(0, {n}), color=RED, radius=0.12)
-        p0_lbl = MathTex(r"(0,\ {n:g})", color=RED).scale(0.7).next_to(p0, RIGHT)
-        self.play(GrowFromCenter(p0), Write(p0_lbl))
+        # Pulsa ambos
+        self.play(
+            Indicate(eq_a, color={cor_a}, scale_factor=1.15),
+            Indicate(eq_b, color={cor_b}, scale_factor=1.15),
+        )
+        self.wait(1.5)
+        self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.9)
+'''
+
+
+# -------------------- 4. Lista em cascata --------------------
+def gen_lista_cascata(p):
+    titulo = str(p.get("titulo", "Propriedades"))
+    itens = _split_lines(p.get("itens", "Comutativa\nAssociativa\nDistributiva"))
+    if not itens:
+        raise ValueError("Informe ao menos 1 item.")
+    if len(itens) > 8:
+        raise ValueError("Máximo de 8 itens.")
+    destaque_idx_raw = p.get("destaque_idx", 0)
+    try:
+        destaque_idx = int(destaque_idx_raw)
+    except (TypeError, ValueError):
+        destaque_idx = 0
+    if destaque_idx < 0 or destaque_idx >= len(itens):
+        destaque_idx = -1  # nenhum
+    eh_latex_raw = p.get("eh_latex", False)
+    eh_latex = str(eh_latex_raw).strip().lower() in ("true", "1", "yes", "sim")
+    cor_destaque = str(p.get("cor_destaque", "YELLOW"))
+    return f'''from manim import *
+
+class ListaCascata(Scene):
+    def construct(self):
+        titulo = Text({titulo!r}, font_size=46, color=BLUE).to_edge(UP)
+        self.play(Write(titulo))
+        sublinhado = Underline(titulo, color=BLUE_B)
+        self.play(Create(sublinhado))
+
+        itens_raw = {itens!r}
+        eh_latex = {eh_latex}
+        destaque_idx = {destaque_idx}
+        Constructor = MathTex if eh_latex else Text
+
+        # Cria todos os mobjects empilhados
+        itens = VGroup()
+        for txt in itens_raw:
+            bullet = Dot(color=BLUE, radius=0.08)
+            try:
+                rotulo = Constructor(txt, font_size=36)
+            except Exception:
+                rotulo = Text(txt, font_size=36)
+            linha = VGroup(bullet, rotulo).arrange(RIGHT, buff=0.3)
+            itens.add(linha)
+        itens.arrange(DOWN, buff=0.45, aligned_edge=LEFT).next_to(sublinhado, DOWN, buff=0.6).shift(LEFT)
+
+        # FadeIn sequencial em cascata
+        for linha in itens:
+            self.play(FadeIn(linha, shift=RIGHT*0.4), run_time=0.55)
+        self.wait(0.8)
+
+        # Destaca o item escolhido
+        if 0 <= destaque_idx < len(itens):
+            alvo = itens[destaque_idx]
+            self.play(
+                alvo.animate.set_color({cor_destaque}).scale(1.1),
+                Flash(alvo.get_center(), color={cor_destaque}, flash_radius=0.8),
+            )
+            self.wait(1)
+
+        self.wait(1.5)
+        self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.9)
+'''
+
+
+# -------------------- 5. Definição → Exemplo --------------------
+def gen_definicao_exemplo(p):
+    titulo_def = str(p.get("titulo_def", "Definição"))
+    latex_def = str(p.get("latex_def", r"f(x) = ax^2 + bx + c, \quad a \neq 0"))
+    titulo_ex = str(p.get("titulo_ex", "Exemplo"))
+    latex_ex = str(p.get("latex_ex", r"f(x) = 2x^2 - 3x + 1"))
+    return f'''from manim import *
+
+class DefinicaoExemplo(Scene):
+    def construct(self):
+        # ---------- Definição ----------
+        cab_def = Text({titulo_def!r}, font_size=44, color=BLUE).to_edge(UP)
+        caixa = SurroundingRectangle(cab_def, color=BLUE_B, buff=0.2, corner_radius=0.1)
+        self.play(Write(cab_def))
+        self.play(Create(caixa))
+
+        eq_def = MathTex({latex_def!r}, font_size=56).move_to(ORIGIN)
+        self.play(FadeIn(eq_def, shift=UP*0.4), run_time=1.2)
+        self.wait(1.2)
+
+        # Slide a definição para cima e diminui
+        bloco_def = VGroup(cab_def, caixa, eq_def)
+        self.play(bloco_def.animate.scale(0.55).to_edge(UP).shift(DOWN*0.2), run_time=1)
+        linha = Line(LEFT*5.5, RIGHT*5.5, color=GREY_B).next_to(bloco_def, DOWN, buff=0.25)
+        self.play(Create(linha))
+
+        # ---------- Exemplo ----------
+        cab_ex = Text({titulo_ex!r}, font_size=42, color=GREEN).next_to(linha, DOWN, buff=0.4)
+        self.play(Write(cab_ex))
+
+        eq_ex = MathTex({latex_ex!r}, font_size=60, color=GREEN).next_to(cab_ex, DOWN, buff=0.6)
+        self.play(Write(eq_ex), run_time=1.4)
+        self.wait(0.5)
+        self.play(Circumscribe(eq_ex, color=GREEN, run_time=1.4))
+        self.wait(1.8)
+        self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.9)
+'''
+
+
+# -------------------- 6. Sequência de Equivalências --------------------
+def gen_sequencia(p):
+    titulo = str(p.get("titulo", "Sequência"))
+    expressoes = _split_lines(p.get("expressoes", r"a^2 - b^2"
+                                                   "\n(a-b)(a+b)"))
+    if len(expressoes) < 2:
+        raise ValueError("Informe ao menos 2 expressões LaTeX, uma por linha.")
+    if len(expressoes) > 6:
+        raise ValueError("Máximo de 6 expressões.")
+    sep = str(p.get("separador", "="))
+    cor_seta = str(p.get("cor_seta", "YELLOW"))
+    return f'''from manim import *
+
+class Sequencia(Scene):
+    def construct(self):
+        titulo = Text({titulo!r}, font_size=42, color=BLUE).to_edge(UP)
+        self.play(Write(titulo))
+
+        expressoes = {expressoes!r}
+        separador = {sep!r}
+
+        # Constrói a primeira expressão central
+        atual = MathTex(expressoes[0], font_size=52).move_to(ORIGIN + UP*0.5)
+        self.play(Write(atual), run_time=1)
         self.wait(0.5)
 
-        # Triângulo de inclinação
-        x0v, x1v = 1, 2
-        tri = Polygon(axes.c2p(x0v, {m}*x0v+{n}), axes.c2p(x1v, {m}*x0v+{n}),
-                      axes.c2p(x1v, {m}*x1v+{n}),
-                      color=ORANGE, fill_opacity=0.4)
-        self.play(Create(tri))
-        dx = MathTex(r"\\Delta x = 1", color=ORANGE).scale(0.6).next_to(
-            Line(axes.c2p(x0v, {m}*x0v+{n}), axes.c2p(x1v, {m}*x0v+{n})).get_center(), DOWN, buff=0.1)
-        dy = MathTex(r"\\Delta y = {m:g}", color=ORANGE).scale(0.6).next_to(
-            Line(axes.c2p(x1v, {m}*x0v+{n}), axes.c2p(x1v, {m}*x1v+{n})).get_center(), RIGHT, buff=0.1)
-        self.play(Write(dx), Write(dy))
-        self.wait(0.8)
+        # Para cada nova expressão: seta + sinal + nova expressão abaixo
+        for expr in expressoes[1:]:
+            seta = MathTex(r"\\Downarrow", font_size=44, color={cor_seta}).next_to(atual, DOWN, buff=0.3)
+            nova = MathTex(separador + r"\\;" + expr, font_size=52).next_to(seta, DOWN, buff=0.3)
+            self.play(GrowFromEdge(seta, UP), run_time=0.5)
+            self.play(Write(nova), run_time=1)
+            # Sobe tudo para abrir espaço
+            grupo = Group(*[m for m in self.mobjects if m is not titulo])
+            if grupo.get_bottom()[1] < -3:
+                self.play(grupo.animate.shift(UP*1.4), run_time=0.6)
+            atual = nova
+            self.wait(0.4)
 
-        slope = MathTex(r"m = \\frac{{\\Delta y}}{{\\Delta x}} = {m:g}", color=ORANGE, font_size=40).to_edge(DOWN)
-        self.play(Write(slope))
-        self.wait(2.5)
-        self.play(*[FadeOut(m) for m in self.mobjects])
+        # Destaca a última
+        self.play(Circumscribe(atual, color=GREEN, run_time=1.4))
+        self.wait(1.5)
+        self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.9)
 '''
 
 
-# -------------------- Círculo Trigonométrico --------------------
-def gen_circulo_trig(p):
-    voltas = float(p["voltas"])
-    return f'''from manim import *
-import numpy as np
-
-class CirculoTrigonometrico(Scene):
-    def construct(self):
-        {_hdr("Círculo Trigonométrico")}
-
-        plane = NumberPlane(x_range=[-2,2,1], y_range=[-2,2,1], x_length=5, y_length=5,
-                            background_line_style={{"stroke_opacity": 0.4}}).shift(LEFT*3 + DOWN*0.3)
-        circle = Circle(radius=plane.get_x_axis().get_unit_size()*1, color=YELLOW).move_to(plane.c2p(0,0))
-        self.play(Create(plane), Create(circle))
-
-        theta = ValueTracker(0)
-
-        def get_point():
-            t = theta.get_value()
-            return plane.c2p(np.cos(t), np.sin(t))
-
-        radius = always_redraw(lambda: Line(plane.c2p(0,0), get_point(), color=WHITE))
-        dot = always_redraw(lambda: Dot(get_point(), color=RED, radius=0.1))
-        sin_line = always_redraw(lambda: Line(
-            plane.c2p(np.cos(theta.get_value()), 0), get_point(), color=GREEN, stroke_width=5))
-        cos_line = always_redraw(lambda: Line(
-            plane.c2p(0,0), plane.c2p(np.cos(theta.get_value()), 0), color=ORANGE, stroke_width=5))
-
-        self.add(radius, sin_line, cos_line, dot)
-
-        labels = VGroup(
-            MathTex(r"\\theta = ", color=WHITE),
-            MathTex(r"\\sin\\theta = ", color=GREEN),
-            MathTex(r"\\cos\\theta = ", color=ORANGE),
-        ).arrange(DOWN, aligned_edge=LEFT, buff=0.6).shift(RIGHT*3 + DOWN*0.3)
-
-        theta_val = always_redraw(lambda: DecimalNumber(theta.get_value(), num_decimal_places=2,
-                                   color=WHITE).next_to(labels[0], RIGHT))
-        sin_val = always_redraw(lambda: DecimalNumber(np.sin(theta.get_value()), num_decimal_places=2,
-                                  color=GREEN).next_to(labels[1], RIGHT))
-        cos_val = always_redraw(lambda: DecimalNumber(np.cos(theta.get_value()), num_decimal_places=2,
-                                  color=ORANGE).next_to(labels[2], RIGHT))
-
-        self.play(Write(labels))
-        self.add(theta_val, sin_val, cos_val)
-
-        self.play(theta.animate.set_value(2*PI*{voltas}), run_time=6, rate_func=linear)
-        self.wait(1)
-        self.play(*[FadeOut(m) for m in self.mobjects])
-'''
-
-
-# -------------------- Derivada Visual --------------------
-def gen_derivada_visual(p):
-    funcao = p["funcao"]
-    if funcao == "quadratica":
-        f_expr = "x**2"
-        df_expr = "2*x"
-        label = "f(x) = x^2"
-        x_min, x_max = -3, 3
-    elif funcao == "cubica":
-        f_expr = "x**3 - 3*x"
-        df_expr = "3*x**2 - 3"
-        label = "f(x) = x^3 - 3x"
-        x_min, x_max = -2.5, 2.5
-    else:
-        f_expr = "np.sin(x)"
-        df_expr = "np.cos(x)"
-        label = r"f(x) = \\sin(x)"
-        x_min, x_max = "-PI", "PI"
-    return f'''from manim import *
-import numpy as np
-
-class DerivadaVisual(Scene):
-    def construct(self):
-        {_hdr("Derivada como Inclinação")}
-
-        f = lambda x: {f_expr}
-        df = lambda x: {df_expr}
-
-        axes = Axes(x_range=[-3.5, 3.5, 1], y_range=[-5,5,1], x_length=9, y_length=5,
-                    axis_config={{"include_numbers": True, "stroke_color": GREY_B}}).shift(DOWN*0.3)
-        graph = axes.plot(f, color=BLUE, x_range=[{x_min}, {x_max}])
-        graph_lbl = MathTex(r"{label}", color=BLUE).to_corner(UR).shift(DOWN*0.8 + LEFT*0.3)
-
-        self.play(Create(axes))
-        self.play(Create(graph), Write(graph_lbl), run_time=2)
-
-        x_t = ValueTracker({x_min})
-
-        dot = always_redraw(lambda: Dot(axes.c2p(x_t.get_value(), f(x_t.get_value())), color=RED, radius=0.1))
-
-        def get_tangent():
-            xv = x_t.get_value()
-            slope = df(xv)
-            return axes.plot(lambda x: slope*(x - xv) + f(xv), color=YELLOW, x_range=[xv-1.2, xv+1.2])
-        tangent = always_redraw(get_tangent)
-
-        slope_label = always_redraw(lambda: MathTex(
-            "f'(" + f"{{x_t.get_value():.2f}}" + ") = " + f"{{df(x_t.get_value()):.2f}}",
-            color=YELLOW
-        ).to_edge(DOWN))
-
-        self.add(dot, tangent, slope_label)
-        self.play(x_t.animate.set_value({x_max}), run_time=8, rate_func=smooth)
-        self.wait(1)
-        self.play(*[FadeOut(m) for m in self.mobjects])
-'''
-
-
-# -------------------- Soma de Frações --------------------
-def gen_soma_fracoes(p):
-    n1 = int(p["n1"]); d1 = int(p["d1"])
-    n2 = int(p["n2"]); d2 = int(p["d2"])
-    if d1 == 0 or d2 == 0:
-        raise ValueError("Denominadores não podem ser zero.")
-    mmc = abs(d1 * d2) // gcd(d1, d2)
-    a = n1 * (mmc // d1)
-    b_ = n2 * (mmc // d2)
-    soma_n = a + b_
-    g = gcd(abs(soma_n), mmc) if soma_n != 0 else 1
-    sn, sd = (soma_n // g, mmc // g) if g else (soma_n, mmc)
-
-    code = f'''from manim import *
-
-class SomaFracoes(Scene):
-    def construct(self):
-        {_hdr("Soma de Frações")}
-
-        f1 = MathTex(r"\\frac{{{n1}}}{{{d1}}}", font_size=72, color=GREEN).shift(LEFT*3 + UP*0.3)
-        plus = MathTex("+", font_size=72).shift(LEFT*1 + UP*0.3)
-        f2 = MathTex(r"\\frac{{{n2}}}{{{d2}}}", font_size=72, color=ORANGE).shift(UP*0.3 + RIGHT*0.5)
-        eq = MathTex("=", font_size=72).next_to(f2, RIGHT, buff=0.5)
-        result = MathTex(r"?", font_size=72, color=YELLOW).next_to(eq, RIGHT, buff=0.5)
-
-        self.play(Write(f1), Write(plus), Write(f2), Write(eq), Write(result))
-        self.wait(1)
-
-        passo1 = MathTex(r"\\text{{MMC}}({d1}, {d2}) = {mmc}", font_size=36, color=BLUE).shift(DOWN*1.5)
-        self.play(Write(passo1))
-        self.wait(0.8)
-
-        f1e = MathTex(r"\\frac{{{a}}}{{{mmc}}}", font_size=60, color=GREEN).move_to(f1)
-        f2e = MathTex(r"\\frac{{{b_}}}{{{mmc}}}", font_size=60, color=ORANGE).move_to(f2)
-        self.play(Transform(f1, f1e), Transform(f2, f2e))
-        self.wait(0.8)
-
-        result_final = MathTex(r"\\frac{{{soma_n}}}{{{mmc}}}", font_size=72, color=YELLOW).move_to(result)
-        self.play(Transform(result, result_final))
-        self.wait(0.8)
-'''
-    if (sn, sd) != (soma_n, mmc):
-        code += f'''
-        simpl = MathTex(r"= \\frac{{{sn}}}{{{sd}}}", font_size=72, color=RED).next_to(result, RIGHT, buff=0.4)
-        self.play(Write(simpl))
-'''
-    code += '''
-        self.wait(3)
-        self.play(*[FadeOut(m) for m in self.mobjects])
-'''
-    return code
-
-
-# -------------------- Sistema Linear 2x2 --------------------
-def gen_sistema_linear(p):
-    a1 = float(p["a1"]); b1 = float(p["b1"]); c1 = float(p["c1"])
-    a2 = float(p["a2"]); b2 = float(p["b2"]); c2 = float(p["c2"])
-    det = a1 * b2 - a2 * b1
-    code = f'''from manim import *
-
-class SistemaLinear(Scene):
-    def construct(self):
-        {_hdr("Sistema Linear 2x2")}
-
-        sistema = MathTex(
-            r"\\begin{{cases}} {a1:g}x + ({b1:g})y = {c1:g} \\\\ {a2:g}x + ({b2:g})y = {c2:g} \\end{{cases}}",
-            font_size=40
-        ).to_edge(LEFT).shift(RIGHT*0.5 + UP*0.3)
-        self.play(Write(sistema))
-        self.wait(0.8)
-
-        axes = Axes(x_range=[-6,6,1], y_range=[-6,6,1], x_length=6, y_length=6,
-                    axis_config={{"include_numbers": True, "stroke_color": GREY_B}}).shift(RIGHT*3)
-        self.play(Create(axes))
-'''
-    if b1 != 0:
-        code += f'        r1 = axes.plot(lambda x: ({c1} - {a1}*x)/{b1}, color=GREEN, x_range=[-6,6])\n'
-    else:
-        code += f'        r1 = Line(axes.c2p({c1/a1 if a1 else 0},-6), axes.c2p({c1/a1 if a1 else 0},6), color=GREEN)\n'
-    if b2 != 0:
-        code += f'        r2 = axes.plot(lambda x: ({c2} - {a2}*x)/{b2}, color=ORANGE, x_range=[-6,6])\n'
-    else:
-        code += f'        r2 = Line(axes.c2p({c2/a2 if a2 else 0},-6), axes.c2p({c2/a2 if a2 else 0},6), color=ORANGE)\n'
-
-    code += '''        self.play(Create(r1), run_time=1.5)
-        self.play(Create(r2), run_time=1.5)
-        self.wait(0.4)
-'''
-    if det != 0:
-        x = (c1 * b2 - c2 * b1) / det
-        y = (a1 * c2 - a2 * c1) / det
-        code += f'''
-        ponto = Dot(axes.c2p({x}, {y}), color=YELLOW, radius=0.14)
-        lbl = MathTex(r"({x:.2f},\\ {y:.2f})", color=YELLOW).scale(0.7).next_to(ponto, UR)
-        self.play(GrowFromCenter(ponto), Write(lbl))
-        sol = MathTex(r"x = {x:.2f}, \\quad y = {y:.2f}", color=YELLOW).to_edge(DOWN)
-        self.play(Write(sol))
-'''
-    else:
-        code += '''
-        sol = Text("Sistema impossível ou indeterminado", font_size=28, color=RED).to_edge(DOWN)
-        self.play(Write(sol))
-'''
-    code += '''        self.wait(3)
-        self.play(*[FadeOut(m) for m in self.mobjects])
-'''
-    return code
-
-
-# -------------------- Registry --------------------
+# -------------------- TEMPLATES registry --------------------
 TEMPLATES = {
-    "funcao_quadratica": {
-        "title": "Função Quadrática",
-        "description": "Visualize f(x) = ax² + bx + c com vértice e zeros.",
-        "icon": "📈",
-        "category": "Funções",
-        "scene": "FuncaoQuadratica",
+    "apresentacao": {
+        "id": "apresentacao",
+        "title": "Apresentação de Teorema",
+        "description": "Título com slide-up + enunciado em LaTeX + caixa de destaque + autoria opcional.",
+        "icon": "📜",
+        "category": "Apresentação",
+        "scene": "Apresentacao",
+        "generator": gen_apresentacao,
         "params": [
-            {"name": "a", "label": "Coeficiente a", "type": "number", "default": 1, "step": 0.5},
-            {"name": "b", "label": "Coeficiente b", "type": "number", "default": -2, "step": 0.5},
-            {"name": "c", "label": "Coeficiente c", "type": "number", "default": -3, "step": 0.5},
+            {"name": "titulo", "type": "text", "default": "Teorema de Pitágoras", "label": "Título"},
+            {"name": "enunciado", "type": "latex", "default": r"a^2 + b^2 = c^2", "label": "Enunciado (LaTeX)"},
+            {"name": "autoria", "type": "text", "default": "", "label": "Autoria (opcional)"},
+            {"name": "cor_titulo", "type": "select", "default": "BLUE", "label": "Cor do título", "options": _color_options()},
+            {"name": "cor_destaque", "type": "select", "default": "YELLOW", "label": "Cor do destaque", "options": _color_options()},
         ],
-        "generator": gen_funcao_quadratica,
     },
-    "bhaskara": {
-        "title": "Fórmula de Bhaskara",
-        "description": "Resolução passo a passo de equação do segundo grau.",
+    "passo_a_passo": {
+        "id": "passo_a_passo",
+        "title": "Resolução Passo a Passo",
+        "description": "Sequência de equações LaTeX que se transformam suavemente uma na outra (TransformMatchingTex).",
         "icon": "🧮",
-        "category": "Equações",
-        "scene": "Bhaskara",
+        "category": "Resolução",
+        "scene": "PassoAPasso",
+        "generator": gen_passo_a_passo,
         "params": [
-            {"name": "a", "label": "Coeficiente a", "type": "number", "default": 1, "step": 1},
-            {"name": "b", "label": "Coeficiente b", "type": "number", "default": -5, "step": 1},
-            {"name": "c", "label": "Coeficiente c", "type": "number", "default": 6, "step": 1},
+            {"name": "titulo", "type": "text", "default": "Resolvendo a equação", "label": "Título"},
+            {"name": "passos", "type": "list_latex", "default": "2x + 4 = 10\n2x = 10 - 4\n2x = 6\nx = 3",
+             "label": "Passos em LaTeX", "hint": "Um passo por linha (até 8)."},
+            {"name": "cor_destaque", "type": "select", "default": "GREEN", "label": "Cor do resultado", "options": _color_options()},
         ],
-        "generator": gen_bhaskara,
     },
-    "pitagoras": {
-        "title": "Teorema de Pitágoras",
-        "description": "Demonstração visual de a² + b² = c².",
-        "icon": "📐",
-        "category": "Geometria",
-        "scene": "Pitagoras",
+    "comparacao": {
+        "id": "comparacao",
+        "title": "Comparação Lado a Lado",
+        "description": "Duas expressões LaTeX entram pelos lados, separadas por uma linha, com seta de equivalência.",
+        "icon": "⚖️",
+        "category": "Comparação",
+        "scene": "Comparacao",
+        "generator": gen_comparacao,
         "params": [
-            {"name": "a", "label": "Cateto a", "type": "number", "default": 3, "step": 0.5},
-            {"name": "b", "label": "Cateto b", "type": "number", "default": 4, "step": 0.5},
+            {"name": "titulo", "type": "text", "default": "Produto Notável", "label": "Título"},
+            {"name": "label_a", "type": "text", "default": "Forma fatorada", "label": "Rótulo A"},
+            {"name": "latex_a", "type": "latex", "default": r"(a+b)^2", "label": "LaTeX A"},
+            {"name": "label_b", "type": "text", "default": "Forma expandida", "label": "Rótulo B"},
+            {"name": "latex_b", "type": "latex", "default": r"a^2 + 2ab + b^2", "label": "LaTeX B"},
+            {"name": "cor_a", "type": "select", "default": "BLUE", "label": "Cor A", "options": _color_options()},
+            {"name": "cor_b", "type": "select", "default": "ORANGE", "label": "Cor B", "options": _color_options()},
         ],
-        "generator": gen_pitagoras,
     },
-    "funcao_linear": {
-        "title": "Função Linear",
-        "description": "Visualize f(x) = mx + n com inclinação e intercepto.",
-        "icon": "📊",
-        "category": "Funções",
-        "scene": "FuncaoLinear",
+    "lista_cascata": {
+        "id": "lista_cascata",
+        "title": "Lista em Cascata",
+        "description": "Itens (texto ou LaTeX) aparecem em FadeIn sequencial. Permite destacar um item.",
+        "icon": "📋",
+        "category": "Lista",
+        "scene": "ListaCascata",
+        "generator": gen_lista_cascata,
         "params": [
-            {"name": "m", "label": "Coeficiente angular (m)", "type": "number", "default": 2, "step": 0.5},
-            {"name": "n", "label": "Coeficiente linear (n)", "type": "number", "default": 1, "step": 0.5},
+            {"name": "titulo", "type": "text", "default": "Propriedades da Adição", "label": "Título"},
+            {"name": "itens", "type": "list_text", "default": "Comutativa: a + b = b + a\nAssociativa: (a+b)+c = a+(b+c)\nElemento neutro: a + 0 = a\nElemento oposto: a + (-a) = 0",
+             "label": "Itens (um por linha)", "hint": "Um item por linha (até 8)."},
+            {"name": "eh_latex", "type": "select", "default": "false", "label": "Itens são LaTeX?",
+             "options": [{"value": "true", "label": "Sim (MathTex)"}, {"value": "false", "label": "Não (texto)"}]},
+            {"name": "destaque_idx", "type": "number", "default": -1, "label": "Índice a destacar (0-base, -1 = nenhum)"},
+            {"name": "cor_destaque", "type": "select", "default": "YELLOW", "label": "Cor do destaque", "options": _color_options()},
         ],
-        "generator": gen_funcao_linear,
     },
-    "circulo_trig": {
-        "title": "Círculo Trigonométrico",
-        "description": "Animação do seno e cosseno no círculo unitário.",
-        "icon": "🔄",
-        "category": "Trigonometria",
-        "scene": "CirculoTrigonometrico",
+    "definicao_exemplo": {
+        "id": "definicao_exemplo",
+        "title": "Definição → Exemplo",
+        "description": "Mostra a definição em destaque, depois move-a para o topo e revela um exemplo abaixo.",
+        "icon": "💡",
+        "category": "Conceito",
+        "scene": "DefinicaoExemplo",
+        "generator": gen_definicao_exemplo,
         "params": [
-            {"name": "voltas", "label": "Número de voltas", "type": "number", "default": 1, "step": 1},
+            {"name": "titulo_def", "type": "text", "default": "Definição", "label": "Título da definição"},
+            {"name": "latex_def", "type": "latex", "default": r"f(x) = ax^2 + bx + c, \quad a \neq 0", "label": "Definição em LaTeX"},
+            {"name": "titulo_ex", "type": "text", "default": "Exemplo", "label": "Título do exemplo"},
+            {"name": "latex_ex", "type": "latex", "default": r"f(x) = 2x^2 - 3x + 1", "label": "Exemplo em LaTeX"},
         ],
-        "generator": gen_circulo_trig,
     },
-    "derivada_visual": {
-        "title": "Derivada Visual",
-        "description": "Reta tangente percorrendo a curva.",
-        "icon": "📉",
-        "category": "Cálculo",
-        "scene": "DerivadaVisual",
+    "sequencia": {
+        "id": "sequencia",
+        "title": "Sequência de Equivalências",
+        "description": "Cadeia A ⇒ B ⇒ C ⇒ ... com setas verticais e destaque final.",
+        "icon": "⛓️",
+        "category": "Demonstração",
+        "scene": "Sequencia",
+        "generator": gen_sequencia,
         "params": [
-            {"name": "funcao", "label": "Função", "type": "select",
+            {"name": "titulo", "type": "text", "default": "Diferença de Quadrados", "label": "Título"},
+            {"name": "expressoes", "type": "list_latex", "default": "a^2 - b^2\n(a-b)(a+b)",
+             "label": "Expressões LaTeX", "hint": "Uma por linha (até 6)."},
+            {"name": "separador", "type": "select", "default": "=", "label": "Símbolo entre expressões",
              "options": [
-                 {"value": "quadratica", "label": "f(x) = x²"},
-                 {"value": "cubica", "label": "f(x) = x³ - 3x"},
-                 {"value": "seno", "label": "f(x) = sin(x)"},
-             ],
-             "default": "quadratica"},
+                 {"value": "=", "label": "Igualdade ="},
+                 {"value": r"\equiv", "label": "Equivalente ≡"},
+                 {"value": r"\Rightarrow", "label": "Implica ⇒"},
+                 {"value": r"\therefore", "label": "Portanto ∴"},
+             ]},
+            {"name": "cor_seta", "type": "select", "default": "YELLOW", "label": "Cor das setas", "options": _color_options()},
         ],
-        "generator": gen_derivada_visual,
-    },
-    "soma_fracoes": {
-        "title": "Soma de Frações",
-        "description": "Soma visual com MMC e simplificação.",
-        "icon": "➗",
-        "category": "Aritmética",
-        "scene": "SomaFracoes",
-        "params": [
-            {"name": "n1", "label": "Numerador 1", "type": "number", "default": 1, "step": 1},
-            {"name": "d1", "label": "Denominador 1", "type": "number", "default": 2, "step": 1},
-            {"name": "n2", "label": "Numerador 2", "type": "number", "default": 1, "step": 1},
-            {"name": "d2", "label": "Denominador 2", "type": "number", "default": 3, "step": 1},
-        ],
-        "generator": gen_soma_fracoes,
-    },
-    "sistema_linear": {
-        "title": "Sistema Linear 2×2",
-        "description": "Resolução gráfica de sistema linear.",
-        "icon": "🔢",
-        "category": "Equações",
-        "scene": "SistemaLinear",
-        "params": [
-            {"name": "a1", "label": "a₁ (eq. 1)", "type": "number", "default": 1, "step": 1},
-            {"name": "b1", "label": "b₁ (eq. 1)", "type": "number", "default": 1, "step": 1},
-            {"name": "c1", "label": "c₁ (eq. 1)", "type": "number", "default": 5, "step": 1},
-            {"name": "a2", "label": "a₂ (eq. 2)", "type": "number", "default": 2, "step": 1},
-            {"name": "b2", "label": "b₂ (eq. 2)", "type": "number", "default": -1, "step": 1},
-            {"name": "c2", "label": "c₂ (eq. 2)", "type": "number", "default": 1, "step": 1},
-        ],
-        "generator": gen_sistema_linear,
     },
 }
 
+
+# -------------------- API --------------------
 
 def get_template_meta():
     return [
@@ -581,7 +443,8 @@ def get_template_meta():
 def _validate_param(p_def, value):
     """Coage e valida um valor de parâmetro contra sua definição."""
     import math
-    if p_def["type"] == "number":
+    t = p_def["type"]
+    if t == "number":
         try:
             v = float(value)
         except (TypeError, ValueError):
@@ -589,11 +452,17 @@ def _validate_param(p_def, value):
         if math.isnan(v) or math.isinf(v):
             raise ValueError(f"Parâmetro '{p_def['label']}' inválido (NaN/Infinito).")
         return v
-    if p_def["type"] == "select":
+    if t == "select":
         valid = {o["value"] for o in p_def["options"]}
         if value not in valid:
             raise ValueError(f"Valor inválido para '{p_def['label']}'.")
         return value
+    if t in ("text", "latex"):
+        return "" if value is None else str(value)
+    if t in ("list_text", "list_latex"):
+        if isinstance(value, list):
+            return "\n".join(str(x) for x in value)
+        return "" if value is None else str(value)
     return value
 
 

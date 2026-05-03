@@ -1,5 +1,8 @@
 {pkgs}: {
   deps = [
+    pkgs.texliveFull
+    pkgs.texliveMedium
+    pkgs.texliveSmall
     pkgs.harfbuzz
     pkgs.pangomm
     pkgs.cairomm
