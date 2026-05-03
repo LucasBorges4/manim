@@ -232,14 +232,25 @@ select#quality {
 .params-form select:focus { border-color: var(--accent); }
 .params-form .muted.center { text-align: center; padding: 30px 0; }
 
-.code-wrap {
-    flex: 1; overflow: auto;
-    margin: 0; padding: 16px;
-    background: var(--bg) !important;
-    font-size: 12.5px !important;
-    line-height: 1.6;
+.editor-wrap {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
-.code-wrap code { background: transparent !important; }
+.editor-wrap .CodeMirror {
+    flex: 1;
+    height: 100% !important;
+    font-family: ui-monospace, "JetBrains Mono", "Fira Code", Menlo, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+}
+.CodeMirror.cm-s-dracula { background: #0e1117 !important; }
+.CodeMirror.cm-s-dracula .CodeMirror-gutters { background: #0e1117 !important; border-right: 1px solid var(--border); }
+
+.header-actions { display: flex; gap: 8px; align-items: center; }
+.sidebar-footer { padding: 12px; border-top: 1px solid var(--border); }
+.btn.full { width: 100%; }
 
 .video-area {
     flex: 1;

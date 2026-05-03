@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Manim Studio — Animações Matemáticas</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -13,7 +14,7 @@
         <span class="logo">∑</span>
         <div>
             <h1>Manim Studio</h1>
-            <p>Crie animações matemáticas com um clique</p>
+            <p>Edite, execute e renderize animações matemáticas em tempo real</p>
         </div>
     </div>
     <div class="topbar-right">
@@ -28,13 +29,16 @@
             <input type="text" id="search" placeholder="Buscar template...">
         </div>
         <div id="template-list" class="template-list"></div>
+        <div class="sidebar-footer">
+            <button id="blank-btn" class="btn ghost small full">+ Cena em branco</button>
+        </div>
     </aside>
 
     <section class="workspace">
         <div class="workspace-header">
             <div>
                 <h2 id="current-title">Selecione um template</h2>
-                <p id="current-desc" class="muted">Escolha um template à esquerda para começar.</p>
+                <p id="current-desc" class="muted">Escolha um template à esquerda ou comece com uma cena em branco.</p>
             </div>
             <div class="actions">
                 <select id="quality" title="Qualidade do vídeo">
@@ -43,7 +47,7 @@
                     <option value="h">Alta (1080p, lento)</option>
                 </select>
                 <button id="render-btn" class="btn primary" disabled>
-                    <span class="btn-text">▶ Renderizar</span>
+                    <span class="btn-text">▶ Executar &amp; Renderizar</span>
                 </button>
             </div>
         </div>
@@ -52,7 +56,7 @@
             <div class="panel params-panel">
                 <div class="panel-header">
                     <h3>Parâmetros</h3>
-                    <span class="hint">Ajuste e gere o código</span>
+                    <button id="reset-btn" class="btn ghost small" title="Regerar código a partir dos parâmetros">↻ Reset</button>
                 </div>
                 <form id="params-form" class="params-form">
                     <p class="muted center">Nenhum template selecionado.</p>
@@ -61,10 +65,15 @@
 
             <div class="panel code-panel">
                 <div class="panel-header">
-                    <h3>Código Manim gerado</h3>
-                    <button id="copy-code" class="btn ghost small">Copiar</button>
+                    <h3>Editor de Código Manim</h3>
+                    <div class="header-actions">
+                        <span id="scene-info" class="hint"></span>
+                        <button id="copy-code" class="btn ghost small">Copiar</button>
+                    </div>
                 </div>
-                <pre class="code-wrap"><code id="code-view" class="language-python"># O código aparecerá aqui após selecionar um template.</code></pre>
+                <div class="editor-wrap">
+                    <textarea id="code-editor"></textarea>
+                </div>
             </div>
 
             <div class="panel video-panel">
@@ -86,8 +95,10 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

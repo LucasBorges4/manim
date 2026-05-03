@@ -3,6 +3,8 @@ const state = {
     currentId: null,
     params: {},
     debounceTimer: null,
+    editor: null,
+    userEdited: false,
 };
 
 const els = {
@@ -11,8 +13,11 @@ const els = {
     title: document.getElementById("current-title"),
     desc: document.getElementById("current-desc"),
     form: document.getElementById("params-form"),
-    code: document.getElementById("code-view"),
+    editorTA: document.getElementById("code-editor"),
+    sceneInfo: document.getElementById("scene-info"),
     copy: document.getElementById("copy-code"),
+    reset: document.getElementById("reset-btn"),
+    blank: document.getElementById("blank-btn"),
     render: document.getElementById("render-btn"),
     quality: document.getElementById("quality"),
     videoArea: document.getElementById("video-area"),
@@ -21,7 +26,70 @@ const els = {
     toast: document.getElementById("toast"),
 };
 
+const BLANK_CODE = `from manim import *
+
+class MinhaCena(Scene):
+    def construct(self):
+        titulo = Text("Olá, Manim!", font_size=48, color=BLUE)
+        self.play(Write(titulo))
+        self.wait(1)
+        self.play(titulo.animate.to_edge(UP))
+
+        circulo = Circle(radius=1.5, color=YELLOW).set_fill(YELLOW, opacity=0.3)
+        quadrado = Square(side_length=2.5, color=GREEN).set_fill(GREEN, opacity=0.3)
+
+        self.play(Create(circulo))
+        self.wait(0.5)
+        self.play(Transform(circulo, quadrado))
+        self.wait(1)
+        self.play(*[FadeOut(m) for m in self.mobjects])
+`;
+
+function setupEditor() {
+    state.editor = CodeMirror.fromTextArea(els.editorTA, {
+        mode: "python",
+        theme: "dracula",
+        lineNumbers: true,
+        indentUnit: 4,
+        tabSize: 4,
+        matchBrackets: true,
+        autoCloseBrackets: true,
+        lineWrapping: false,
+    });
+    state.editor.on("change", () => {
+        if (!state.suppressChange) {
+            state.userEdited = true;
+        }
+        updateSceneInfo();
+    });
+    state.editor.setValue("# Selecione um template ou clique em '+ Cena em branco' para começar.\n");
+}
+
+function setEditorCode(code) {
+    state.suppressChange = true;
+    state.editor.setValue(code);
+    state.suppressChange = false;
+    state.userEdited = false;
+    updateSceneInfo();
+}
+
+function updateSceneInfo() {
+    const code = state.editor.getValue();
+    const matches = [...code.matchAll(/class\s+([A-Za-z_]\w*)\s*\(\s*Scene\s*\)\s*:/g)].map(m => m[1]);
+    if (matches.length === 0) {
+        els.sceneInfo.textContent = "⚠ Nenhuma classe Scene";
+        els.sceneInfo.style.color = "var(--warn)";
+    } else if (matches.length === 1) {
+        els.sceneInfo.textContent = `Scene: ${matches[0]}`;
+        els.sceneInfo.style.color = "var(--accent-2)";
+    } else {
+        els.sceneInfo.textContent = `Scenes: ${matches.join(", ")} (renderiza a 1ª)`;
+        els.sceneInfo.style.color = "var(--accent-2)";
+    }
+}
+
 async function init() {
+    setupEditor();
     try {
         const res = await fetch("/api/templates");
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -29,7 +97,7 @@ async function init() {
         state.templates = data.templates;
         renderTemplateList();
     } catch (e) {
-        els.list.innerHTML = `<div class="placeholder" style="padding:20px;text-align:center;color:var(--danger)">Erro ao carregar templates: ${e.message}</div>`;
+        els.list.innerHTML = `<div class="placeholder" style="padding:20px;text-align:center;color:var(--danger)">Erro: ${e.message}</div>`;
         toast("Falha ao carregar templates", "error");
     }
 }
@@ -58,6 +126,12 @@ function renderTemplateList(filter = "") {
 function selectTemplate(id) {
     const t = state.templates.find(x => x.id === id);
     if (!t) return;
+
+    if (state.userEdited &&
+        !confirm("Você editou o código. Trocar de template vai descartar suas mudanças. Continuar?")) {
+        return;
+    }
+
     state.currentId = id;
     state.params = {};
     t.params.forEach(p => { state.params[p.name] = p.default; });
@@ -67,7 +141,7 @@ function selectTemplate(id) {
     els.render.disabled = false;
     renderTemplateList(els.search.value);
     renderForm(t);
-    updateCode();
+    regenerateCode();
 }
 
 function renderForm(t) {
@@ -99,37 +173,26 @@ function renderForm(t) {
                 val = parseFloat(el.value);
                 if (isNaN(val)) {
                     el.style.borderColor = "var(--danger)";
-                    return; // não atualiza enquanto inválido
+                    return;
                 }
                 el.style.borderColor = "";
             } else {
                 val = el.value;
             }
             state.params[name] = val;
-            scheduleCodeUpdate();
+            scheduleRegenerate();
         });
     });
 }
 
-function validateParams() {
-    const inputs = els.form.querySelectorAll("input[type='number']");
-    for (const i of inputs) {
-        if (i.value === "" || isNaN(parseFloat(i.value))) {
-            i.style.borderColor = "var(--danger)";
-            i.focus();
-            return false;
-        }
-    }
-    return true;
-}
-
-function scheduleCodeUpdate() {
+function scheduleRegenerate() {
     clearTimeout(state.debounceTimer);
-    state.debounceTimer = setTimeout(updateCode, 250);
+    state.debounceTimer = setTimeout(regenerateCode, 350);
 }
 
-async function updateCode() {
+async function regenerateCode() {
     if (!state.currentId) return;
+    if (state.userEdited) return; // não sobrescreve edições do usuário automaticamente
     try {
         const res = await fetch("/api/generate", {
             method: "POST",
@@ -141,45 +204,70 @@ async function updateCode() {
         });
         const data = await res.json();
         if (data.error) {
-            els.code.textContent = `# Erro: ${data.error}`;
+            toast(data.error, "error");
         } else {
-            els.code.textContent = data.code;
-            if (window.Prism) Prism.highlightElement(els.code);
+            setEditorCode(data.code);
         }
     } catch (e) {
-        els.code.textContent = `# Erro: ${e.message}`;
+        toast(e.message, "error");
     }
 }
 
 els.copy.addEventListener("click", () => {
-    const text = els.code.textContent;
+    const text = state.editor.getValue();
     if (!text) return;
     navigator.clipboard.writeText(text).then(() => toast("Código copiado!", "success"));
+});
+
+els.reset.addEventListener("click", () => {
+    if (!state.currentId) {
+        toast("Nenhum template ativo", "error");
+        return;
+    }
+    if (state.userEdited && !confirm("Descartar suas edições e regerar do template?")) return;
+    state.userEdited = false;
+    regenerateCode();
+});
+
+els.blank.addEventListener("click", () => {
+    if (state.userEdited && !confirm("Descartar suas edições?")) return;
+    state.currentId = null;
+    state.params = {};
+    els.title.textContent = "✏️ Cena em branco";
+    els.desc.textContent = "Edite livremente o código abaixo e clique em Executar para renderizar.";
+    els.form.innerHTML = `<p class="muted center">Sem parâmetros.<br><small>Edite o código diretamente.</small></p>`;
+    els.render.disabled = false;
+    renderTemplateList(els.search.value);
+    setEditorCode(BLANK_CODE);
 });
 
 els.search.addEventListener("input", e => renderTemplateList(e.target.value));
 
 els.render.addEventListener("click", async () => {
-    if (!state.currentId) return;
-    if (!validateParams()) {
-        toast("Preencha todos os parâmetros corretamente", "error");
+    const code = state.editor.getValue();
+    if (!code.trim()) {
+        toast("Editor vazio", "error");
+        return;
+    }
+    const sceneMatches = [...code.matchAll(/class\s+([A-Za-z_]\w*)\s*\(\s*Scene\s*\)\s*:/g)];
+    if (sceneMatches.length === 0) {
+        toast("Nenhuma classe Scene encontrada no código", "error");
         return;
     }
 
     els.render.disabled = true;
     els.render.innerHTML = `<span class="spinner"></span> Renderizando...`;
-    els.videoStatus.textContent = "Renderizando, aguarde (até ~3 min)...";
-    els.videoArea.innerHTML = `<div class="placeholder"><div class="placeholder-icon">⏳</div><p>Renderizando o vídeo com Manim...<br><small class="muted">Isso pode levar de 10s a 3 min dependendo da qualidade.</small></p></div>`;
+    els.videoStatus.textContent = "Executando Manim...";
+    els.videoArea.innerHTML = `<div class="placeholder"><div class="placeholder-icon">⏳</div><p>Renderizando o vídeo...<br><small class="muted">Pode levar de 10s a 3 min.</small></p></div>`;
     els.log.classList.add("hidden");
     els.log.textContent = "";
 
     try {
-        const res = await fetch("/api/render", {
+        const res = await fetch("/api/render-code", {
             method: "POST",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({
-                template_id: state.currentId,
-                params: state.params,
+                code: code,
                 quality: els.quality.value,
             }),
         });
@@ -199,7 +287,7 @@ els.render.addEventListener("click", async () => {
                     <source src="${data.video_url}" type="video/mp4">
                 </video>
             `;
-            els.videoStatus.textContent = "Pronto ✓";
+            els.videoStatus.textContent = `Pronto ✓ (${data.scene})`;
             toast("Vídeo renderizado!", "success");
         }
     } catch (e) {
@@ -209,7 +297,7 @@ els.render.addEventListener("click", async () => {
     }
 
     els.render.disabled = false;
-    els.render.innerHTML = `<span class="btn-text">▶ Renderizar</span>`;
+    els.render.innerHTML = `<span class="btn-text">▶ Executar &amp; Renderizar</span>`;
 });
 
 function toast(msg, type = "") {
