@@ -14,6 +14,15 @@ matemáticos prontos. Frontend leve em HTML/CSS/JS, backend Flask.
 - `manim_templates.py` — registry de templates parametrizados (8 templates):
   Função Quadrática, Bhaskara, Pitágoras, Função Linear, Círculo Trigonométrico,
   Derivada Visual, Soma de Frações, Sistema Linear 2×2.
+- `manim_snippets.py` — biblioteca de **snippets** (blocos de código pequenos
+  parametrizados) focados em transições e animações reutilizáveis. 20 snippets
+  em 8 categorias (Introdução, Transições, Ênfase, Equações, Gráficos,
+  Anotações, Geometria, Esqueletos). Exposto via API consumível por IA:
+  - `GET /api/snippets` — lista
+  - `GET /api/snippets/<id>` — detalhe
+  - `POST /api/snippets/<id>/render` — substitui placeholders e devolve código
+  - `GET /api/snippets/manifest` — manifesto JSON otimizado para LLM (descrição,
+    params, requires_var, exemplo já renderizado, template bruto)
 - `templates/index.html` — UI principal
 - `static/style.css` — tema escuro estilo IDE
 - `static/app.js` — interações: seleção de template, edição de parâmetros,

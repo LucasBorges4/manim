@@ -24,6 +24,22 @@ const els = {
     videoStatus: document.getElementById("video-status"),
     log: document.getElementById("render-log"),
     toast: document.getElementById("toast"),
+    snippetsBtn: document.getElementById("snippets-btn"),
+    snippetsModal: document.getElementById("snippets-modal"),
+    snippetsClose: document.getElementById("snippets-close"),
+    snippetsSearch: document.getElementById("snippets-search"),
+    snippetsCats: document.getElementById("snippets-cats"),
+    snippetsList: document.getElementById("snippets-list"),
+    snippetDetail: document.getElementById("snippet-detail"),
+};
+
+const snipState = {
+    all: [],
+    categories: [],
+    activeCat: null,
+    filter: "",
+    selectedId: null,
+    params: {},
 };
 
 const BLANK_CODE = `from manim import *
@@ -299,6 +315,190 @@ els.render.addEventListener("click", async () => {
     els.render.disabled = false;
     els.render.innerHTML = `<span class="btn-text">▶ Executar &amp; Renderizar</span>`;
 });
+
+// -------------------- Snippets --------------------
+
+async function loadSnippets() {
+    if (snipState.all.length) return;
+    try {
+        const res = await fetch("/api/snippets");
+        const data = await res.json();
+        snipState.all = data.snippets;
+        snipState.categories = data.categories;
+        renderSnippetCats();
+        renderSnippetList();
+    } catch (e) {
+        toast("Erro ao carregar snippets: " + e.message, "error");
+    }
+}
+
+function renderSnippetCats() {
+    const cats = ["Todas", ...snipState.categories];
+    els.snippetsCats.innerHTML = cats.map(c =>
+        `<span class="cat-chip ${ (c === "Todas" && !snipState.activeCat) || c === snipState.activeCat ? 'active' : '' }" data-cat="${c}">${c}</span>`
+    ).join("");
+    els.snippetsCats.querySelectorAll(".cat-chip").forEach(chip => {
+        chip.addEventListener("click", () => {
+            snipState.activeCat = chip.dataset.cat === "Todas" ? null : chip.dataset.cat;
+            renderSnippetCats();
+            renderSnippetList();
+        });
+    });
+}
+
+function renderSnippetList() {
+    const f = snipState.filter.toLowerCase();
+    const list = snipState.all.filter(s => {
+        if (snipState.activeCat && s.category !== snipState.activeCat) return false;
+        if (!f) return true;
+        return s.title.toLowerCase().includes(f) ||
+               s.description.toLowerCase().includes(f) ||
+               (s.tags || []).some(t => t.toLowerCase().includes(f));
+    });
+    els.snippetsList.innerHTML = list.map(s => `
+        <div class="snippet-item ${snipState.selectedId === s.id ? 'active' : ''}" data-id="${s.id}">
+            <div class="si-cat">${s.category}</div>
+            <div class="si-title">${s.title}</div>
+            <div class="si-desc">${s.description}</div>
+        </div>
+    `).join("") || `<p class="muted center" style="padding:20px">Nada encontrado.</p>`;
+    els.snippetsList.querySelectorAll(".snippet-item").forEach(it => {
+        it.addEventListener("click", () => selectSnippet(it.dataset.id));
+    });
+}
+
+async function selectSnippet(id) {
+    snipState.selectedId = id;
+    const s = snipState.all.find(x => x.id === id);
+    if (!s) return;
+    snipState.params = {};
+    s.params.forEach(p => { snipState.params[p.name] = p.default; });
+    renderSnippetList();
+    await renderSnippetDetail();
+}
+
+async function renderSnippetDetail() {
+    const s = snipState.all.find(x => x.id === snipState.selectedId);
+    if (!s) return;
+
+    // pega preview do código com params atuais
+    let previewCode = "";
+    try {
+        const res = await fetch(`/api/snippets/${s.id}/render`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({params: snipState.params}),
+        });
+        const data = await res.json();
+        previewCode = data.code || data.error || "";
+    } catch (e) {
+        previewCode = "Erro ao gerar preview: " + e.message;
+    }
+
+    const requiresNote = s.requires_var && s.requires_var.length
+        ? `<div class="requires-note">⚠ Este snippet usa as variáveis: <strong>${s.requires_var.join(", ")}</strong>. Crie-as antes no código.</div>`
+        : "";
+
+    const fullSceneNote = s.is_full_scene
+        ? `<div class="requires-note" style="border-left-color: var(--accent); color: var(--accent)">ℹ Este snippet é uma <strong>cena completa</strong> — substitui o código atual.</div>`
+        : "";
+
+    const paramsHtml = s.params.map(p => {
+        const cur = snipState.params[p.name] !== undefined ? snipState.params[p.name] : p.default;
+        if (p.type === "select") {
+            return `<div class="field"><label>${p.label}</label>
+                <select data-name="${p.name}">
+                    ${p.options.map(o => `<option value="${o.value}" ${o.value === cur ? 'selected':''}>${o.label}</option>`).join("")}
+                </select></div>`;
+        }
+        const inputType = p.type === "number" ? "number" : "text";
+        return `<div class="field"><label>${p.label}</label>
+            <input type="${inputType}" data-name="${p.name}" value="${escapeAttr(cur)}" ${p.type === 'number' ? 'step="any"' : ''}>
+            </div>`;
+    }).join("") || `<p class="muted" style="grid-column:1/-1">Sem parâmetros.</p>`;
+
+    els.snippetDetail.innerHTML = `
+        <div class="cat-tag">${s.category}</div>
+        <h3>${s.title}</h3>
+        <p class="desc">${s.description}</p>
+        <div class="tags">${(s.tags||[]).map(t => `<span class="tag">${t}</span>`).join("")}</div>
+        ${fullSceneNote}
+        ${requiresNote}
+        <div class="snippet-params">${paramsHtml}</div>
+        <div class="snippet-preview">${escapeHtml(previewCode)}</div>
+        <div class="snippet-actions">
+            <button class="btn primary" id="insert-snippet">＋ Inserir no Editor</button>
+            <button class="btn ghost" id="copy-snippet">Copiar</button>
+        </div>
+    `;
+
+    els.snippetDetail.querySelectorAll(".snippet-params [data-name]").forEach(el => {
+        const handler = () => {
+            const name = el.dataset.name;
+            const v = el.type === "number" ? parseFloat(el.value) : el.value;
+            snipState.params[name] = v;
+            renderSnippetDetail();
+        };
+        // 'input' para texto/número, 'change' para select (evita perder foco a cada tecla)
+        el.addEventListener(el.tagName === "SELECT" ? "change" : "input", handler);
+    });
+
+    document.getElementById("insert-snippet").addEventListener("click", () => insertSnippet(s, previewCode));
+    document.getElementById("copy-snippet").addEventListener("click", () => {
+        navigator.clipboard.writeText(previewCode);
+        toast("Código copiado", "success");
+    });
+}
+
+function insertSnippet(s, code) {
+    if (s.is_full_scene) {
+        if (state.editor.getValue().trim() &&
+            !confirm("Este snippet é uma cena completa e vai substituir o código atual. Continuar?")) {
+            return;
+        }
+        setEditorCode(code);
+    } else {
+        // Insere com indentação para casar com `def construct(self):`
+        const indented = code.split("\n").map(l => l ? "        " + l : l).join("\n");
+        const cursor = state.editor.getCursor();
+        const cur = state.editor.getValue();
+        // Se tem placeholder de classe Scene, insere antes do final do construct
+        if (/class\s+\w+\s*\(\s*Scene\s*\)\s*:/.test(cur)) {
+            // tenta inserir antes do último FadeOut(*self.mobjects) ou no final do construct
+            state.editor.replaceRange("\n" + indented + "\n", cursor);
+        } else {
+            // Sem scene: cria estrutura
+            const scene = `from manim import *\n\nclass MinhaCena(Scene):\n    def construct(self):\n${indented}\n`;
+            setEditorCode(scene);
+        }
+        state.userEdited = true;
+    }
+    closeSnippetsModal();
+    toast(`Snippet "${s.title}" inserido`, "success");
+}
+
+function openSnippetsModal() {
+    els.snippetsModal.classList.remove("hidden");
+    loadSnippets();
+}
+function closeSnippetsModal() {
+    els.snippetsModal.classList.add("hidden");
+}
+
+els.snippetsBtn.addEventListener("click", openSnippetsModal);
+els.snippetsClose.addEventListener("click", closeSnippetsModal);
+els.snippetsModal.querySelector(".modal-backdrop").addEventListener("click", closeSnippetsModal);
+els.snippetsSearch.addEventListener("input", e => {
+    snipState.filter = e.target.value;
+    renderSnippetList();
+});
+
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
+
+// -------------------- Toast --------------------
 
 function toast(msg, type = "") {
     els.toast.textContent = msg;

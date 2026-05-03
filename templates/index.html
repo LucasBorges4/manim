@@ -68,6 +68,7 @@
                     <h3>Editor de Código Manim</h3>
                     <div class="header-actions">
                         <span id="scene-info" class="hint"></span>
+                        <button id="snippets-btn" class="btn ghost small" title="Inserir snippet de transição/animação">＋ Snippet</button>
                         <button id="copy-code" class="btn ghost small">Copiar</button>
                     </div>
                 </div>
@@ -94,6 +95,33 @@
 </main>
 
 <div id="toast" class="toast hidden"></div>
+
+<div id="snippets-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <div>
+                <h2>Biblioteca de Snippets</h2>
+                <p class="muted">Blocos de código prontos para transições, ênfase, gráficos e mais. Acessível também via <code>/api/snippets/manifest</code> para IA.</p>
+            </div>
+            <button id="snippets-close" class="btn ghost small">✕ Fechar</button>
+        </div>
+        <div class="modal-body">
+            <aside class="modal-aside">
+                <input type="text" id="snippets-search" placeholder="Buscar snippet...">
+                <div id="snippets-cats"></div>
+                <div id="snippets-list"></div>
+            </aside>
+            <section class="modal-detail">
+                <div id="snippet-detail">
+                    <div class="placeholder" style="padding:60px 20px">
+                        <p class="muted">Selecione um snippet à esquerda.</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>

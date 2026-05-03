@@ -13,6 +13,9 @@ from pathlib import Path
 from flask import Flask, jsonify, request, send_from_directory, render_template
 
 from manim_templates import TEMPLATES, generate_code, get_template_meta, get_scene_class
+from manim_snippets import (
+    list_snippets, get_snippet, render_snippet, manifest_for_ai, CATEGORIES,
+)
 
 SCENE_RE = re.compile(r"class\s+([A-Za-z_]\w*)\s*\(\s*Scene\s*\)\s*:")
 QUALITY_DIR = {"l": "480p15", "m": "720p30", "h": "1080p60"}
@@ -143,6 +146,51 @@ def api_render_code():
     if ok:
         payload["scenes"] = scenes
     return jsonify(payload), status
+
+
+@app.route("/api/snippets", methods=["GET"])
+def api_snippets_list():
+    """Lista todos os snippets disponíveis com metadados (sem o código completo)."""
+    return jsonify({
+        "categories": CATEGORIES,
+        "snippets": list_snippets(),
+    })
+
+
+@app.route("/api/snippets/manifest", methods=["GET"])
+def api_snippets_manifest():
+    """Manifesto completo otimizado para consumo por IA."""
+    return jsonify(manifest_for_ai())
+
+
+@app.route("/api/snippets/<snippet_id>", methods=["GET"])
+def api_snippets_detail(snippet_id):
+    try:
+        return jsonify(get_snippet(snippet_id))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+
+
+@app.route("/api/snippets/<snippet_id>/render", methods=["POST"])
+def api_snippets_render(snippet_id):
+    """Renderiza o código do snippet com os parâmetros recebidos."""
+    try:
+        get_snippet(snippet_id)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+
+    data = request.get_json(silent=True)
+    if data is None:
+        data = {}
+    if not isinstance(data, dict):
+        return jsonify({"error": "Body deve ser um objeto JSON."}), 400
+    params = data.get("params", {})
+    if not isinstance(params, dict):
+        return jsonify({"error": "'params' deve ser um objeto."}), 400
+    try:
+        return jsonify(render_snippet(snippet_id, params))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
 
 @app.route("/renders/<path:filename>")
