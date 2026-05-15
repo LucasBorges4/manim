@@ -514,4 +514,104 @@ function toast(msg, type = "") {
     setTimeout(() => els.toast.classList.add("hidden"), 3500);
 }
 
+// -------------------- Manim Compiler --------------------
+
+async function compilerGenerate(prompt) {
+    try {
+        const res = await fetch("/api/compiler/generate", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({prompt: prompt}),
+        });
+        const data = await res.json();
+        if (data.error) {
+            toast(data.error, "error");
+            return null;
+        }
+        setEditorCode(data.code);
+        state.currentId = data.template_id;
+        state.params = data.params || {};
+        els.title.textContent = "🤖 " + prompt.substring(0, 40);
+        els.desc.textContent = "Template: " + data.template_id;
+        els.render.disabled = false;
+        toast("Código gerado!", "success");
+        return data.code;
+    } catch (e) {
+        toast(e.message, "error");
+        return null;
+    }
+}
+
+async function compilerRender(prompt, quality) {
+    const code = await compilerGenerate(prompt);
+    if (!code) return;
+
+    els.render.disabled = true;
+    els.render.innerHTML = '<span class="spinner"></span> Renderizando...';
+    els.videoStatus.textContent = "Executando Manim...";
+    els.videoArea.innerHTML = '<div class="placeholder"><div class="placeholder-icon">⏳</div><p>Renderizando...</p></div>';
+
+    try {
+        const res = await fetch("/api/compiler/render", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({prompt: prompt, quality: quality}),
+        });
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+            els.videoArea.innerHTML = '<div class="placeholder"><div class="placeholder-icon">⚠️</div><p>' + escapeHtml(data.error || "Erro") + '</p></div>';
+            els.videoStatus.textContent = "Falha";
+            toast(data.error || "Erro", "error");
+        } else {
+            els.videoArea.innerHTML = '<video controls autoplay loop><source src="' + data.video_url + '" type="video/mp4"></video>';
+            els.videoStatus.textContent = "Pronto ✓";
+            toast("Vídeo renderizado!", "success");
+        }
+    } catch (e) {
+        els.videoArea.innerHTML = '<div class="placeholder"><p>' + escapeHtml(e.message) + '</p></div>';
+        els.videoStatus.textContent = "Falha";
+        toast(e.message, "error");
+    }
+
+    els.render.disabled = false;
+    els.render.innerHTML = '<span class="btn-text">▶ Executar &amp; Renderizar</span>';
+}
+
+async function exportCode(filename) {
+    const code = state.editor.getValue();
+    const blob = new Blob([code], {type: "text/x-python"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename || "scene.py";
+    a.click();
+    URL.revokeObjectURL(url);
+    toast("Arquivo exportado!", "success");
+}
+
+// Event listeners para compiler
+document.getElementById("compiler-generate").addEventListener("click", () => {
+    const prompt = document.getElementById("compiler-prompt").value.trim();
+    if (prompt) compilerGenerate(prompt);
+});
+
+document.getElementById("compiler-render").addEventListener("click", () => {
+    const prompt = document.getElementById("compiler-prompt").value.trim();
+    if (prompt) compilerRender(prompt, els.quality.value);
+});
+
+document.getElementById("export-btn").addEventListener("click", () => {
+    exportCode("manim_scene.py");
+});
+
+// Exemplos clicáveis
+document.querySelectorAll(".example-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+        const example = btn.dataset.example;
+        document.getElementById("compiler-prompt").value = example;
+        compilerGenerate(example);
+    });
+});
+
 init();

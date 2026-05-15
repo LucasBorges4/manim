@@ -34,6 +34,29 @@
         </div>
     </aside>
 
+    <aside class="compiler-aside">
+        <div class="sidebar-header">
+            <h2>🤖 Manim Compiler</h2>
+            <p class="muted small">Digite em linguagem natural</p>
+        </div>
+        <div class="compiler-input-area">
+            <textarea id="compiler-prompt" placeholder="Ex: Mostre a fórmula de Bhaskara com exemplo numérico..." rows="4"></textarea>
+            <div class="compiler-actions">
+                <button id="compiler-generate" class="btn primary small">Gerar Código</button>
+                <button id="compiler-render" class="btn small">▶ Renderizar</button>
+            </div>
+        </div>
+        <div class="compiler-examples">
+            <p class="muted small">Exemplos:</p>
+            <button class="example-btn" data-example="Mostre a fórmula de Bhaskara">Bhaskara</button>
+            <button class="example-btn" data-example="Mostre o teorema de Pitágoras">Pitágoras</button>
+            <button class="example-btn" data-example="Como resolver equações do 1º grau">Equações</button>
+        </div>
+        <div class="sidebar-footer">
+            <button id="export-btn" class="btn ghost small full">💾 Exportar .py</button>
+        </div>
+    </aside>
+
     <section class="workspace">
         <div class="workspace-header">
             <div>

@@ -2,6 +2,30 @@
 
 Esta coleção contém animações criadas com Manim para auxiliar no aprendizado de matemática do ensino médio.
 
+## 🚀 Novidade: Manim Compiler
+
+Agora você pode gerar animações usando **linguagem natural**! Basta digitar o que quiser mostrar:
+
+```python
+from manim_compiler import compile_video
+
+# Exemplos:
+compile_video("Mostre a fórmula de Bhaskara")
+compile_video("Mostre o teorema de Pitágoras")
+compile_video("Como resolver equações do 1º grau")
+compile_video("Mostre as propriedades da adição")
+```
+
+Para renderizar automaticamente:
+```python
+compile_video("Mostre a fórmula de Bhaskara", render=True)
+```
+
+### Comandos via CLI:
+```bash
+python manim_compiler.py "Mostre a fórmula de Bhaskara" --render
+```
+
 ## Conteúdos
 
 ### 1. Aritmética Básica

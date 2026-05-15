@@ -20,6 +20,7 @@ from manim_snippets import (
     list_snippets, get_snippet, render_snippet,
     manifest_for_ai as snippets_manifest_for_ai, CATEGORIES,
 )
+from manim_compiler import compile_video, parse_intent
 
 SCENE_RE = re.compile(r"class\s+([A-Za-z_]\w*)\s*\(\s*Scene\s*\)\s*:")
 QUALITY_DIR = {"l": "480p15", "m": "720p30", "h": "1080p60"}
@@ -245,6 +246,64 @@ def api_snippets_render(snippet_id):
 @app.route("/renders/<path:filename>")
 def serve_render(filename):
     return send_from_directory(RENDERS_DIR, filename)
+
+
+# ---------- Manim Compiler API ----------
+@app.route("/api/compiler/parse", methods=["POST"])
+def api_compiler_parse():
+    """Analisa linguagem natural e retorna template_id + params."""
+    data = request.get_json(force=True)
+    prompt = data.get("prompt", "")
+    if not prompt:
+        return jsonify({"error": "Campo 'prompt' é obrigatório."}), 400
+    template_id, params = parse_intent(prompt)
+    return jsonify({"template_id": template_id, "params": params})
+
+
+@app.route("/api/compiler/generate", methods=["POST"])
+def api_compiler_generate():
+    """Gera código Manim a partir de linguagem natural."""
+    data = request.get_json(force=True)
+    prompt = data.get("prompt", "")
+    output_file = data.get("output_file")
+    if not prompt:
+        return jsonify({"error": "Campo 'prompt' é obrigatório."}), 400
+    code = compile_video(prompt, output_file=output_file)
+    template_id, params = parse_intent(prompt)
+    return jsonify({"code": code, "template_id": template_id, "params": params})
+
+
+@app.route("/api/compiler/render", methods=["POST"])
+def api_compiler_render():
+    """Gera e renderiza código Manim a partir de linguagem natural."""
+    data = request.get_json(force=True)
+    prompt = data.get("prompt", "")
+    quality = data.get("quality", "l")
+    if not prompt:
+        return jsonify({"error": "Campo 'prompt' é obrigatório."}), 400
+    code = compile_video(prompt, render=False)
+    template_id, params = parse_intent(prompt)
+    scene = get_scene_class(template_id)
+    ok, payload, status = _run_manim(code, scene, quality)
+    if ok:
+        payload["code"] = code
+        payload["template_id"] = template_id
+        payload["params"] = params
+    return jsonify(payload), status
+
+
+@app.route("/api/compiler/export", methods=["POST"])
+def api_compiler_export():
+    """Exporta código Manim gerado para arquivo .py."""
+    data = request.get_json(force=True)
+    prompt = data.get("prompt", "")
+    filename = data.get("filename", "scene.py")
+    if not prompt:
+        return jsonify({"error": "Campo 'prompt' é obrigatório."}), 400
+    code = compile_video(prompt)
+    filepath = Path(filename)
+    filepath.write_text(code, encoding="utf-8")
+    return jsonify({"file": str(filepath), "code": code})
 
 
 if __name__ == "__main__":

@@ -7,8 +7,8 @@ que o usuário preenche com seu conteúdo matemático.
 
 Estratégia segura para LaTeX:
   Os textos do usuário são injetados no código via `repr(s)`, que produz um
-  literal Python válido com escapes corretos (ex.: '\\frac' fica '\\\\frac' no
-  source, e Python parsa de volta para '\\frac' que MathTex aceita como `\frac`).
+  literal Python válido com escapes corretos (ex.: '\frac' fica '\\frac' no
+  source, e Python parsa de volta para '\frac' que MathTex aceita como `\frac`).
 """
 
 # -------------------- Helpers --------------------
